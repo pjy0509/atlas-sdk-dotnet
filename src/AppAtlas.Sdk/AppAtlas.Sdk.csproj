@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- netstandard2.0 is the one target that reaches .NET Framework 4.6.1+,
+       .NET Core/5+, UWP, WinUI and Unity in a single binary — the floor is
+       the product (docs/sdk-cautions.md §3). Zero dependencies. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>AppAtlas.Sdk</RootNamespace>
+    <AssemblyName>AppAtlas.Sdk</AssemblyName>
+    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet metadata. The package is pushed from a tag; the API key comes
+       from the environment, never this repo. -->
+  <PropertyGroup>
+    <PackageId>AppAtlas.Sdk</PackageId>
+    <Authors>Park Jungyoung</Authors>
+    <Description>App Atlas SDK for .NET: deep-link inflow and telemetry. Runs on .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI and Unity from one netstandard2.0 assembly.</Description>
+    <PackageProjectUrl>https://appatlas.dev</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/pjy0509/atlas-sdk-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>appatlas;deeplink;attribution;telemetry</PackageTags>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
