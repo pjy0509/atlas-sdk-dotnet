@@ -1,5 +1,7 @@
 # Atlas SDK for .NET
 
+[한국어](README.ko.md) · [中文](README.zh.md)
+
 The client half of [App Atlas](https://appatlas.dev) on Windows. One
 `netstandard2.0` assembly with no dependencies, so it loads on .NET Framework
 4.6.1+, .NET Core / 5+, UWP, WinUI and Unity alike.
@@ -8,6 +10,7 @@ The client half of [App Atlas](https://appatlas.dev) on Windows. One
 dotnet add package AppAtlas.Sdk
 ```
 
+<!-- guide:start -->
 ```csharp
 Atlas.Start("sdk_…");
 
@@ -56,6 +59,8 @@ envelope written moments before a crash still leaves.
 The SDK mints an install-scoped random id and reads no machine or hardware
 identifier. Device context (OS version, architecture, runtime, locale,
 timezone, app version) is the standard crash-report set and identifies no one.
+
+<!-- guide:end -->
 
 ## Checks
 
