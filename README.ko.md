@@ -6,11 +6,32 @@
 `netstandard2.0` 어셈블리 하나로, .NET Framework 4.6.1+, .NET Core / 5+,
 UWP, WinUI, Unity에서 똑같이 로드됩니다.
 
+## 설치
+
+<!-- tabs:start -->
+#### CLI
+
 ```sh
 dotnet add package AppAtlas.Sdk
 ```
 
+#### .csproj
+
+```xml
+<PackageReference Include="AppAtlas.Sdk" Version="0.1.0" />
+```
+
+#### Package Manager Console
+
+```powershell
+Install-Package AppAtlas.Sdk
+```
+<!-- tabs:end -->
+
 <!-- guide:start -->
+<!-- tabs:start -->
+#### C#
+
 ```csharp
 Atlas.Start("sdk_…");
 
@@ -24,6 +45,21 @@ AtlasLinks.SetListener(link =>
 AtlasLinks.Handle(activationUri);
 ```
 
+#### Visual Basic
+
+```vb
+Atlas.Start("sdk_…")
+
+AtlasLinks.SetListener(Sub(link)
+                           ' link.Payload / link.Path / link.Deferred / link.Match
+                           ' link.Channel / link.Campaign / link.ShortId
+                       End Sub)
+
+' URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
+AtlasLinks.Handle(activationUri)
+```
+<!-- tabs:end -->
+
 리스너가 붙기 전에 도착한 링크는 보관했다가 다시 전달하므로,
 시작 시점의 활성화도 잃지 않습니다.
 
@@ -32,11 +68,23 @@ AtlasLinks.Handle(activationUri);
 Microsoft Store는 설치 과정에 campaign id를 실어 보냅니다.
 패키징이 허락하는 곳에서 읽어 한 번 넘겨주세요.
 
+<!-- tabs:start -->
+#### C#
+
 ```csharp
 // 패키지 앱: StoreContext의 campaign id, 또는 설치 프로그램이 기록한 값.
 // 패키지가 아닌 앱은 이 호출을 건너뛰어도 됩니다.
 AtlasLinks.ClaimCampaignId(campaignId);
 ```
+
+#### Visual Basic
+
+```vb
+' 패키지 앱: StoreContext의 campaign id, 또는 설치 프로그램이 기록한 값.
+' 패키지가 아닌 앱은 이 호출을 건너뛰어도 됩니다.
+AtlasLinks.ClaimCampaignId(campaignId)
+```
+<!-- tabs:end -->
 
 SDK가 대신 읽지 않는 것은 의도된 선택입니다. 그 값을 읽으려면 WinRT가
 필요한데, WinRT는 패키징 형태에 따라 있기도 하고 없기도 해서,

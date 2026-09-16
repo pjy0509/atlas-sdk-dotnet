@@ -6,11 +6,32 @@
 `netstandard2.0` 程序集，在 .NET Framework 4.6.1+、.NET Core / 5+、
 UWP、WinUI 和 Unity 上加载的都是同一个二进制。
 
+## 安装
+
+<!-- tabs:start -->
+#### CLI
+
 ```sh
 dotnet add package AppAtlas.Sdk
 ```
 
+#### .csproj
+
+```xml
+<PackageReference Include="AppAtlas.Sdk" Version="0.1.0" />
+```
+
+#### Package Manager Console
+
+```powershell
+Install-Package AppAtlas.Sdk
+```
+<!-- tabs:end -->
+
 <!-- guide:start -->
+<!-- tabs:start -->
+#### C#
+
 ```csharp
 Atlas.Start("sdk_…");
 
@@ -24,6 +45,21 @@ AtlasLinks.SetListener(link =>
 AtlasLinks.Handle(activationUri);
 ```
 
+#### Visual Basic
+
+```vb
+Atlas.Start("sdk_…")
+
+AtlasLinks.SetListener(Sub(link)
+                           ' link.Payload / link.Path / link.Deferred / link.Match
+                           ' link.Channel / link.Campaign / link.ShortId
+                       End Sub)
+
+' URI 协议激活（应用注册的 scheme，或访问 URL）。
+AtlasLinks.Handle(activationUri)
+```
+<!-- tabs:end -->
+
 先于监听器到达的链接会被保留并重放，启动时的激活不会丢失。
 
 ## 延迟链接
@@ -31,11 +67,23 @@ AtlasLinks.Handle(activationUri);
 Microsoft Store 会在安装过程中携带 campaign id。
 在你的打包方式允许处读取它，并交付一次：
 
+<!-- tabs:start -->
+#### C#
+
 ```csharp
 // 打包应用：StoreContext 的 campaign id，或安装程序记录的值。
 // 未打包的应用可以完全跳过这一步。
 AtlasLinks.ClaimCampaignId(campaignId);
 ```
+
+#### Visual Basic
+
+```vb
+' 打包应用：StoreContext 的 campaign id，或安装程序记录的值。
+' 未打包的应用可以完全跳过这一步。
+AtlasLinks.ClaimCampaignId(campaignId)
+```
+<!-- tabs:end -->
 
 SDK 有意不替你读取：读取它需要 WinRT，而 WinRT 在某些打包形态下存在、
 在另一些下不存在，让 netstandard2.0 程序集去猜，只会在每种宿主上
