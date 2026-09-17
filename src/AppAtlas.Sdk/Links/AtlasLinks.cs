@@ -14,10 +14,11 @@ namespace AppAtlas.Sdk.Links
     ///     AtlasLinks.Handle(activationUri);
     ///     AtlasLinks.ClaimCampaignId(cid);   // from StoreContext, once known
     ///
-    /// The campaign id is handed in rather than fetched: reading it needs
-    /// WinRT (packaged apps only), and a netstandard2.0 assembly reaching
-    /// for WinRT by reflection breaks differently on every host — the app
-    /// knows its own packaging, the SDK cannot (docs/sdk-cautions.md §3).
+    /// On the windows asset a packaged app's campaign id is read from the
+    /// store at start, so ClaimCampaignId is a fallback there. On the
+    /// netstandard asset it stays the only path: reading it needs WinRT, and
+    /// a netstandard2.0 assembly reaching for WinRT by reflection breaks
+    /// differently on every host (docs/sdk-cautions.md §3).
     /// </summary>
     public static class AtlasLinks
     {
@@ -30,6 +31,16 @@ namespace AppAtlas.Sdk.Links
         /// <summary>Called by Atlas.Start; not application API.</summary>
         internal static void Boot()
         {
+#if WINDOWS10_0_17763_0_OR_GREATER
+            StoreCampaign.TryClaim();
+#endif
+        }
+
+        /// <summary>Whether a claim already got a server answer; the windows
+        /// asset skips its store read once this holds.</summary>
+        internal static bool ClaimSettled
+        {
+            get { return ReadState("claim-done") != null; }
         }
 
         /// <summary>The one listener, direct and deferred alike. Setting it

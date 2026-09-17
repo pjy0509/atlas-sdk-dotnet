@@ -1,15 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- netstandard2.0 is the one target that reaches .NET Framework 4.6.1+,
-       .NET Core/5+, UWP, WinUI and Unity in a single binary — the floor is
-       the product (docs/sdk-cautions.md §3). Zero dependencies. -->
+  <!-- netstandard2.0 reaches .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI
+       and Unity (docs/sdk-cautions.md §3); the windows TFM adds the WinRT
+       campaign-id read so a packaged app claims its deferred link with no
+       extra code. NuGet picks the asset per host. Zero dependencies. -->
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net8.0-windows10.0.17763.0</TargetFrameworks>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <LangVersion>7.3</LangVersion>
     <Nullable>disable</Nullable>
     <RootNamespace>AppAtlas.Sdk</RootNamespace>
     <AssemblyName>AppAtlas.Sdk</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
@@ -18,7 +20,7 @@
   <PropertyGroup>
     <PackageId>AppAtlas.Sdk</PackageId>
     <Authors>Park Jungyoung</Authors>
-    <Description>App Atlas SDK for .NET: deep-link inflow and telemetry. Runs on .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI and Unity from one netstandard2.0 assembly.</Description>
+    <Description>App Atlas SDK for .NET: deep-link inflow and telemetry. Runs on .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI and Unity; on Windows targets a packaged app claims its deferred link automatically.</Description>
     <PackageProjectUrl>https://appatlas.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/pjy0509/atlas-sdk-dotnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

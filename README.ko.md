@@ -2,9 +2,10 @@
 
 [English](README.md) · [中文](README.zh.md)
 
-[App Atlas](https://appatlas.dev)의 Windows 클라이언트. 의존성 없는
-`netstandard2.0` 어셈블리 하나로, .NET Framework 4.6.1+, .NET Core / 5+,
-UWP, WinUI, Unity에서 똑같이 로드됩니다.
+[App Atlas](https://appatlas.dev)의 Windows 클라이언트. 의존성이 없습니다.
+`netstandard2.0` 자산은 .NET Framework 4.6.1+, .NET Core / 5+, UWP, WinUI,
+Unity에서 로드되고, `net8.0-windows10.0.17763+` 타깃에는 디퍼드 링크를
+스스로 클레임하는 자산이 갑니다.
 
 ## 설치
 
@@ -66,7 +67,9 @@ AtlasLinks.Handle(activationUri)
 ## 디퍼드 링크
 
 Microsoft Store는 설치 과정에 campaign id를 실어 보냅니다.
-패키징이 허락하는 곳에서 읽어 한 번 넘겨주세요.
+`net8.0-windows10.0.17763` 이상을 타깃하고 패키지 신원이 있는 앱은
+Atlas.Start에서 자동으로 클레임하며, 호출할 것이 없습니다.
+그 외 타깃에서는 패키징이 허락하는 곳에서 읽어 한 번 넘겨주세요.
 
 <!-- tabs:start -->
 #### C#
@@ -86,10 +89,11 @@ AtlasLinks.ClaimCampaignId(campaignId)
 ```
 <!-- tabs:end -->
 
-SDK가 대신 읽지 않는 것은 의도된 선택입니다. 그 값을 읽으려면 WinRT가
-필요한데, WinRT는 패키징 형태에 따라 있기도 하고 없기도 해서,
-netstandard2.0 어셈블리가 그것을 추측하면 호스트마다 다르게 깨집니다.
-앱은 자신이 어떤 모양으로 배포되는지 알고 있습니다.
+netstandard 자산이 대신 읽지 않는 것은 의도된 선택입니다. 그 값을
+읽으려면 WinRT가 필요한데, WinRT는 패키징 형태에 따라 있기도 하고 없기도
+해서, netstandard2.0 어셈블리가 그것을 추측하면 호스트마다 다르게
+깨집니다. windows 자산은 진짜 WinRT 참조를 갖고 있어서 자동 경로가
+거기에만 있습니다.
 
 `AtlasLinks.FirstReferringLink()`는 설치를 만든 링크를 언제까지나
 돌려줍니다.

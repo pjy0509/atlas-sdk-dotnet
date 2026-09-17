@@ -2,9 +2,10 @@
 
 [English](README.md) · [한국어](README.ko.md)
 
-[App Atlas](https://appatlas.dev) 的 Windows 客户端。单个无依赖的
-`netstandard2.0` 程序集，在 .NET Framework 4.6.1+、.NET Core / 5+、
-UWP、WinUI 和 Unity 上加载的都是同一个二进制。
+[App Atlas](https://appatlas.dev) 的 Windows 客户端。零依赖。
+`netstandard2.0` 资产在 .NET Framework 4.6.1+、.NET Core / 5+、UWP、WinUI
+和 Unity 上加载；`net8.0-windows10.0.17763+` 目标会得到一个能自行兑换
+延迟链接的资产。
 
 ## 安装
 
@@ -64,8 +65,9 @@ AtlasLinks.Handle(activationUri)
 
 ## 延迟链接
 
-Microsoft Store 会在安装过程中携带 campaign id。
-在你的打包方式允许处读取它，并交付一次：
+Microsoft Store 会在安装过程中携带 campaign id。目标为
+`net8.0-windows10.0.17763` 及以上且具有包标识的应用会在 Atlas.Start
+自动兑换，无需任何调用。其他目标则在打包方式允许处读取并交付一次：
 
 <!-- tabs:start -->
 #### C#
@@ -85,9 +87,10 @@ AtlasLinks.ClaimCampaignId(campaignId)
 ```
 <!-- tabs:end -->
 
-SDK 有意不替你读取：读取它需要 WinRT，而 WinRT 在某些打包形态下存在、
-在另一些下不存在，让 netstandard2.0 程序集去猜，只会在每种宿主上
-以不同方式出错。你的应用知道自己是怎么发布的。
+netstandard 资产有意不替你读取：读取它需要 WinRT，而 WinRT 在某些打包
+形态下存在、在另一些下不存在，让 netstandard2.0 程序集去猜，只会在每种
+宿主上以不同方式出错。windows 资产带有真正的 WinRT 引用，因此自动路径
+只在那里。
 
 `AtlasLinks.FirstReferringLink()` 永久返回产生这次安装的链接。
 

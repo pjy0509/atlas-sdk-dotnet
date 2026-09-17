@@ -2,9 +2,10 @@
 
 [한국어](README.ko.md) · [中文](README.zh.md)
 
-The client half of [App Atlas](https://appatlas.dev) on Windows. One
-`netstandard2.0` assembly with no dependencies, so it loads on .NET Framework
-4.6.1+, .NET Core / 5+, UWP, WinUI and Unity alike.
+The client half of [App Atlas](https://appatlas.dev) on Windows. No
+dependencies. The `netstandard2.0` asset loads on .NET Framework 4.6.1+,
+.NET Core / 5+, UWP, WinUI and Unity; a `net8.0-windows10.0.17763+` target
+gets an asset that also claims the deferred link by itself.
 
 ## Install
 
@@ -65,8 +66,10 @@ an activation at startup is never lost.
 
 ## The deferred link
 
-The Microsoft Store carries a campaign id through the install. Read it where
-your packaging allows and hand it over once:
+The Microsoft Store carries a campaign id through the install. An app
+targeting `net8.0-windows10.0.17763` or later with package identity claims it
+at Atlas.Start, with nothing to call. On other targets, read it where your
+packaging allows and hand it over once:
 
 <!-- tabs:start -->
 #### C#
@@ -86,10 +89,11 @@ AtlasLinks.ClaimCampaignId(campaignId)
 ```
 <!-- tabs:end -->
 
-The SDK does not fetch it for you on purpose: reading it needs WinRT, which is
-available under some packaging shapes and not others, and a netstandard2.0
-assembly guessing at that breaks differently on every host. Your app knows how
-it ships.
+The netstandard asset does not fetch it on purpose: reading it needs WinRT,
+which is available under some packaging shapes and not others, and a
+netstandard2.0 assembly guessing at that breaks differently on every host.
+The windows asset carries real WinRT references instead, which is why the
+automatic path lives there alone.
 
 `AtlasLinks.FirstReferringLink()` returns the link that produced the install,
 forever.
