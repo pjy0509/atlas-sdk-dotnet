@@ -30,14 +30,43 @@ Install-Package AppAtlas.Sdk
 <!-- tabs:end -->
 
 <!-- guide:start -->
+## Start
+
 <!-- tabs:start -->
 #### C#
 
 ```csharp title="App.xaml.cs (WinUI 3)"
-// App.xaml.cs (WinUI 3): OnLaunched. WPF and console apps call the same
-// two methods from their own startup path.
-Atlas.Start("sdk_…");
+// App.xaml.cs (WinUI 3): WPF and console apps call Atlas.Start from their
+// own startup path the same way.
+protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+{
+    Atlas.Start("sdk_…");
+    // Modules (Links, later Push and Crash) wire in from here.
 
+    // … window creation
+}
+```
+
+#### Visual Basic
+
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF): WinForms calls Atlas.Start from Sub Main or the
+' ApplicationEvents startup handler the same way.
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
+    ' Modules (Links, later Push and Crash) wire in from here.
+End Sub
+```
+<!-- tabs:end -->
+
+## Links
+
+<!-- tabs:start -->
+#### C#
+
+```csharp title="App.xaml.cs (WinUI 3)"
+// App.xaml.cs (WinUI 3): right after Atlas.Start.
 AtlasLinks.SetListener(link =>
 {
     // Direct opens and the deferred link arrive here alike.
@@ -46,8 +75,6 @@ AtlasLinks.SetListener(link =>
     // Route with link.Path and link.Payload, e.g.:
     // if (link.Path != null) OpenScreen(link.Path, link.Payload);
 });
-// On a windows target with package identity, deferred ends here:
-// the SDK claims the campaign id itself.
 
 // URI protocol activation (your app's registered scheme, or a visit URL).
 // WinUI 3 reads it from AppInstance.GetCurrent().GetActivatedEventArgs();
@@ -57,15 +84,18 @@ AtlasLinks.Handle(activationUri);
 
 #### Visual Basic
 
-```vb
-Atlas.Start("sdk_…")
-
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF): right after Atlas.Start.
 AtlasLinks.SetListener(Sub(link)
-                           ' link.Payload / link.Path / link.Deferred / link.Match
-                           ' link.Channel / link.Campaign / link.ShortId
+                           ' Direct opens and the deferred link arrive here alike.
+                           ' link.Deferred: true when the link crossed the install.
+                           ' link.Match: referrer / clipboard / campaign_id / relink.
+                           ' Route with link.Path and link.Payload, e.g.:
+                           ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
                        End Sub)
 
-' URI protocol activation (your app's registered scheme, or a visit URL).
+' URI protocol activation (your app's registered scheme, or a visit URL);
+' WPF and WinForms receive it in the command-line arguments.
 AtlasLinks.Handle(activationUri)
 ```
 <!-- tabs:end -->

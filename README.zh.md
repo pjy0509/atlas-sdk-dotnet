@@ -30,14 +30,43 @@ Install-Package AppAtlas.Sdk
 <!-- tabs:end -->
 
 <!-- guide:start -->
+## 启动
+
 <!-- tabs:start -->
 #### C#
 
 ```csharp title="App.xaml.cs (WinUI 3)"
-// App.xaml.cs (WinUI 3): OnLaunched。WPF 与控制台应用在各自的启动
-// 位置调用同样的两个方法。
-Atlas.Start("sdk_…");
+// App.xaml.cs (WinUI 3): WPF 与控制台应用也在各自的启动位置以同样方式
+// 调用 Atlas.Start。
+protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+{
+    Atlas.Start("sdk_…");
+    // 各模块（Links，之后的 Push 与 Crash）从这里开始接线。
 
+    // … 创建窗口
+}
+```
+
+#### Visual Basic
+
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF): WinForms 在 Sub Main 或 ApplicationEvents 的
+' 启动处理器中以同样方式调用 Atlas.Start。
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
+    ' 各模块（Links，之后的 Push 与 Crash）从这里开始接线。
+End Sub
+```
+<!-- tabs:end -->
+
+## Links
+
+<!-- tabs:start -->
+#### C#
+
+```csharp title="App.xaml.cs (WinUI 3)"
+// App.xaml.cs (WinUI 3): Atlas.Start 之后。
 AtlasLinks.SetListener(link =>
 {
     // 直接打开与延迟链接都到达这里。
@@ -46,8 +75,6 @@ AtlasLinks.SetListener(link =>
     // 用 link.Path 与 link.Payload 做页面跳转，例如：
     // if (link.Path != null) OpenScreen(link.Path, link.Payload);
 });
-// windows 目标且具有包标识时，延迟链接到此为止：
-// SDK 会自行兑换 campaign id。
 
 // URI 协议激活（应用注册的 scheme，或访问 URL）。
 // WinUI 3 从 AppInstance.GetCurrent().GetActivatedEventArgs() 读取；
@@ -57,15 +84,18 @@ AtlasLinks.Handle(activationUri);
 
 #### Visual Basic
 
-```vb
-Atlas.Start("sdk_…")
-
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF): Atlas.Start 之后。
 AtlasLinks.SetListener(Sub(link)
-                           ' link.Payload / link.Path / link.Deferred / link.Match
-                           ' link.Channel / link.Campaign / link.ShortId
+                           ' 直接打开与延迟链接都到达这里。
+                           ' link.Deferred: 跨越了安装的链接为 true。
+                           ' link.Match: referrer / clipboard / campaign_id / relink。
+                           ' 用 link.Path 与 link.Payload 做页面跳转，例如：
+                           ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
                        End Sub)
 
 ' URI 协议激活（应用注册的 scheme，或访问 URL）。
+' WPF 与 WinForms 从命令行参数接收。
 AtlasLinks.Handle(activationUri)
 ```
 <!-- tabs:end -->
