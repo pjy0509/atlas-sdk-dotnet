@@ -6,6 +6,8 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # For a version whose tag predates this workflow.
+  workflow_dispatch:
 
 permissions:
   id-token: write
