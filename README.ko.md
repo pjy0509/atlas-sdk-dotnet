@@ -34,15 +34,24 @@ Install-Package AppAtlas.Sdk
 #### C#
 
 ```csharp
+// App.xaml.cs (WinUI 3): OnLaunched. WPF·콘솔 앱은 각자의 시작 지점에서
+// 같은 두 메서드를 호출합니다.
 Atlas.Start("sdk_…");
 
 AtlasLinks.SetListener(link =>
 {
-    // link.Payload / link.Path / link.Deferred / link.Match
-    // link.Channel / link.Campaign / link.ShortId
+    // 직접 열림과 디퍼드 링크가 같은 자리로 옵니다.
+    // link.Deferred: 설치를 건너온 링크면 true.
+    // link.Match: referrer / clipboard / campaign_id / relink.
+    // link.Path와 link.Payload로 화면을 이동합니다. 예:
+    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
 });
+// windows 타깃 + 패키지 신원이면 디퍼드는 이걸로 끝입니다.
+// SDK가 campaign id를 스스로 클레임합니다.
 
 // URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
+// WinUI 3는 AppInstance.GetCurrent().GetActivatedEventArgs()에서,
+// WPF·WinForms는 명령줄 인자에서 받습니다.
 AtlasLinks.Handle(activationUri);
 ```
 

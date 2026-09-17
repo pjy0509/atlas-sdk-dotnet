@@ -34,15 +34,24 @@ Install-Package AppAtlas.Sdk
 #### C#
 
 ```csharp
+// App.xaml.cs (WinUI 3): OnLaunched。WPF 与控制台应用在各自的启动
+// 位置调用同样的两个方法。
 Atlas.Start("sdk_…");
 
 AtlasLinks.SetListener(link =>
 {
-    // link.Payload / link.Path / link.Deferred / link.Match
-    // link.Channel / link.Campaign / link.ShortId
+    // 直接打开与延迟链接都到达这里。
+    // link.Deferred: 跨越了安装的链接为 true。
+    // link.Match: referrer / clipboard / campaign_id / relink。
+    // 用 link.Path 与 link.Payload 做页面跳转，例如：
+    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
 });
+// windows 目标且具有包标识时，延迟链接到此为止：
+// SDK 会自行兑换 campaign id。
 
 // URI 协议激活（应用注册的 scheme，或访问 URL）。
+// WinUI 3 从 AppInstance.GetCurrent().GetActivatedEventArgs() 读取；
+// WPF 与 WinForms 从命令行参数接收。
 AtlasLinks.Handle(activationUri);
 ```
 

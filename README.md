@@ -34,15 +34,24 @@ Install-Package AppAtlas.Sdk
 #### C#
 
 ```csharp
+// App.xaml.cs (WinUI 3): OnLaunched. WPF and console apps call the same
+// two methods from their own startup path.
 Atlas.Start("sdk_…");
 
 AtlasLinks.SetListener(link =>
 {
-    // link.Payload / link.Path / link.Deferred / link.Match
-    // link.Channel / link.Campaign / link.ShortId
+    // Direct opens and the deferred link arrive here alike.
+    // link.Deferred: true when the link crossed the install.
+    // link.Match: referrer / clipboard / campaign_id / relink.
+    // Route with link.Path and link.Payload, e.g.:
+    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
 });
+// On a windows target with package identity, deferred ends here:
+// the SDK claims the campaign id itself.
 
 // URI protocol activation (your app's registered scheme, or a visit URL).
+// WinUI 3 reads it from AppInstance.GetCurrent().GetActivatedEventArgs();
+// WPF and WinForms receive it in the command-line arguments.
 AtlasLinks.Handle(activationUri);
 ```
 
