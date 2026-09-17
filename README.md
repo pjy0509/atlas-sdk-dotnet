@@ -66,37 +66,52 @@ End Sub
 #### C#
 
 ```csharp title="App.xaml.cs (WinUI 3)"
-// App.xaml.cs (WinUI 3): right after Atlas.Start.
-AtlasLinks.SetListener(link =>
+// App.xaml.cs (WinUI 3)
+protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 {
-    // Direct opens and the deferred link arrive here alike.
-    // link.Deferred: true when the link crossed the install.
-    // link.Match: referrer / clipboard / campaign_id / relink.
-    // Route with link.Path and link.Payload, e.g.:
-    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
-});
+    Atlas.Start("sdk_…");
 
-// URI protocol activation (your app's registered scheme, or a visit URL).
-// WinUI 3 reads it from AppInstance.GetCurrent().GetActivatedEventArgs();
-// WPF and WinForms receive it in the command-line arguments.
-AtlasLinks.Handle(activationUri);
+    AtlasLinks.SetListener(link =>
+    {
+        // Direct opens and the deferred link arrive here alike.
+        // link.Deferred: true when the link crossed the install.
+        // link.Match: referrer / clipboard / campaign_id / relink.
+        // Route with link.Path and link.Payload, e.g.:
+        // if (link.Path != null) OpenScreen(link.Path, link.Payload);
+    });
+
+    // URI protocol activation (the app's registered scheme, or a visit URL).
+    var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+    if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.Protocol
+        && activation.Data is Windows.ApplicationModel.Activation.ProtocolActivatedEventArgs protocol)
+    {
+        AtlasLinks.Handle(protocol.Uri.ToString());
+    }
+
+    // … window creation
+}
 ```
 
 #### Visual Basic
 
 ```vb title="Application.xaml.vb (WPF)"
-' Application.xaml.vb (WPF): right after Atlas.Start.
-AtlasLinks.SetListener(Sub(link)
-                           ' Direct opens and the deferred link arrive here alike.
-                           ' link.Deferred: true when the link crossed the install.
-                           ' link.Match: referrer / clipboard / campaign_id / relink.
-                           ' Route with link.Path and link.Payload, e.g.:
-                           ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
-                       End Sub)
+' Application.xaml.vb (WPF)
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
 
-' URI protocol activation (your app's registered scheme, or a visit URL);
-' WPF and WinForms receive it in the command-line arguments.
-AtlasLinks.Handle(activationUri)
+    AtlasLinks.SetListener(Sub(link)
+                               ' Direct opens and the deferred link arrive here alike.
+                               ' link.Deferred: true when the link crossed the install.
+                               ' link.Match: referrer / clipboard / campaign_id / relink.
+                               ' Route with link.Path and link.Payload, e.g.:
+                               ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
+                           End Sub)
+
+    ' URI protocol activation (your app's registered scheme, or a visit URL);
+    ' WPF and WinForms receive it in the command-line arguments.
+    If e.Args.Length > 0 Then AtlasLinks.Handle(e.Args(0))
+End Sub
 ```
 <!-- tabs:end -->
 

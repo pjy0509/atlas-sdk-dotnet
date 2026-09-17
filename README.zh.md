@@ -66,37 +66,52 @@ End Sub
 #### C#
 
 ```csharp title="App.xaml.cs (WinUI 3)"
-// App.xaml.cs (WinUI 3): Atlas.Start 之后。
-AtlasLinks.SetListener(link =>
+// App.xaml.cs (WinUI 3)
+protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 {
-    // 直接打开与延迟链接都到达这里。
-    // link.Deferred: 跨越了安装的链接为 true。
-    // link.Match: referrer / clipboard / campaign_id / relink。
-    // 用 link.Path 与 link.Payload 做页面跳转，例如：
-    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
-});
+    Atlas.Start("sdk_…");
 
-// URI 协议激活（应用注册的 scheme，或访问 URL）。
-// WinUI 3 从 AppInstance.GetCurrent().GetActivatedEventArgs() 读取；
-// WPF 与 WinForms 从命令行参数接收。
-AtlasLinks.Handle(activationUri);
+    AtlasLinks.SetListener(link =>
+    {
+        // 直接打开与延迟链接都到达这里。
+        // link.Deferred: 跨越了安装的链接为 true。
+        // link.Match: referrer / clipboard / campaign_id / relink。
+        // 用 link.Path 与 link.Payload 做页面跳转，例如：
+        // if (link.Path != null) OpenScreen(link.Path, link.Payload);
+    });
+
+    // URI 协议激活（应用注册的 scheme，或访问 URL）。
+    var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+    if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.Protocol
+        && activation.Data is Windows.ApplicationModel.Activation.ProtocolActivatedEventArgs protocol)
+    {
+        AtlasLinks.Handle(protocol.Uri.ToString());
+    }
+
+    // … 创建窗口
+}
 ```
 
 #### Visual Basic
 
 ```vb title="Application.xaml.vb (WPF)"
-' Application.xaml.vb (WPF): Atlas.Start 之后。
-AtlasLinks.SetListener(Sub(link)
-                           ' 直接打开与延迟链接都到达这里。
-                           ' link.Deferred: 跨越了安装的链接为 true。
-                           ' link.Match: referrer / clipboard / campaign_id / relink。
-                           ' 用 link.Path 与 link.Payload 做页面跳转，例如：
-                           ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
-                       End Sub)
+' Application.xaml.vb (WPF)
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
 
-' URI 协议激活（应用注册的 scheme，或访问 URL）。
-' WPF 与 WinForms 从命令行参数接收。
-AtlasLinks.Handle(activationUri)
+    AtlasLinks.SetListener(Sub(link)
+                               ' 直接打开与延迟链接都到达这里。
+                               ' link.Deferred: 跨越了安装的链接为 true。
+                               ' link.Match: referrer / clipboard / campaign_id / relink。
+                               ' 用 link.Path 与 link.Payload 做页面跳转，例如：
+                               ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
+                           End Sub)
+
+    ' URI 协议激活（应用注册的 scheme，或访问 URL）。
+    ' WPF 与 WinForms 从命令行参数接收。
+    If e.Args.Length > 0 Then AtlasLinks.Handle(e.Args(0))
+End Sub
 ```
 <!-- tabs:end -->
 

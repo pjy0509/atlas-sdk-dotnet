@@ -66,37 +66,52 @@ End Sub
 #### C#
 
 ```csharp title="App.xaml.cs (WinUI 3)"
-// App.xaml.cs (WinUI 3): Atlas.Start 바로 다음.
-AtlasLinks.SetListener(link =>
+// App.xaml.cs (WinUI 3)
+protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 {
-    // 직접 열림과 디퍼드 링크가 같은 자리로 옵니다.
-    // link.Deferred: 설치를 건너온 링크면 true.
-    // link.Match: referrer / clipboard / campaign_id / relink.
-    // link.Path와 link.Payload로 화면을 이동합니다. 예:
-    // if (link.Path != null) OpenScreen(link.Path, link.Payload);
-});
+    Atlas.Start("sdk_…");
 
-// URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
-// WinUI 3는 AppInstance.GetCurrent().GetActivatedEventArgs()에서,
-// WPF·WinForms는 명령줄 인자에서 받습니다.
-AtlasLinks.Handle(activationUri);
+    AtlasLinks.SetListener(link =>
+    {
+        // 직접 열림과 디퍼드 링크가 같은 자리로 옵니다.
+        // link.Deferred: 설치를 건너온 링크면 true.
+        // link.Match: referrer / clipboard / campaign_id / relink.
+        // link.Path와 link.Payload로 화면을 이동합니다. 예:
+        // if (link.Path != null) OpenScreen(link.Path, link.Payload);
+    });
+
+    // URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
+    var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+    if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.Protocol
+        && activation.Data is Windows.ApplicationModel.Activation.ProtocolActivatedEventArgs protocol)
+    {
+        AtlasLinks.Handle(protocol.Uri.ToString());
+    }
+
+    // … 창 생성
+}
 ```
 
 #### Visual Basic
 
 ```vb title="Application.xaml.vb (WPF)"
-' Application.xaml.vb (WPF): Atlas.Start 바로 다음.
-AtlasLinks.SetListener(Sub(link)
-                           ' 직접 열림과 디퍼드 링크가 같은 자리로 옵니다.
-                           ' link.Deferred: 설치를 건너온 링크면 true.
-                           ' link.Match: referrer / clipboard / campaign_id / relink.
-                           ' link.Path와 link.Payload로 화면을 이동합니다. 예:
-                           ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
-                       End Sub)
+' Application.xaml.vb (WPF)
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
 
-' URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
-' WPF·WinForms는 명령줄 인자에서 받습니다.
-AtlasLinks.Handle(activationUri)
+    AtlasLinks.SetListener(Sub(link)
+                               ' 직접 열림과 디퍼드 링크가 같은 자리로 옵니다.
+                               ' link.Deferred: 설치를 건너온 링크면 true.
+                               ' link.Match: referrer / clipboard / campaign_id / relink.
+                               ' link.Path와 link.Payload로 화면을 이동합니다. 예:
+                               ' If link.Path IsNot Nothing Then OpenScreen(link.Path, link.Payload)
+                           End Sub)
+
+    ' URI 프로토콜 활성화(앱이 등록한 스킴, 또는 방문 URL).
+    ' WPF·WinForms는 명령줄 인자에서 받습니다.
+    If e.Args.Length > 0 Then AtlasLinks.Handle(e.Args(0))
+End Sub
 ```
 <!-- tabs:end -->
 
