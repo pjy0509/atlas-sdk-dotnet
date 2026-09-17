@@ -1,0 +1,35 @@
+# Publishes to NuGet through the trusted-publishing policy on nuget.org:
+# the OIDC token this job presents is exchanged for a short-lived key, so no
+# secret is stored anywhere. Pushing a v* tag is the whole release procedure.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - run: dotnet pack src/AppAtlas.Sdk -c Release
+
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: AppAtlas
+
+      - run: >
+          dotnet nuget push src/AppAtlas.Sdk/bin/Release/*.nupkg
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
