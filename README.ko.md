@@ -33,7 +33,7 @@ Install-Package AppAtlas.Sdk
 <!-- tabs:start -->
 #### C#
 
-```csharp
+```csharp title="App.xaml.cs (WinUI 3)"
 // App.xaml.cs (WinUI 3): OnLaunched. WPF·콘솔 앱은 각자의 시작 지점에서
 // 같은 두 메서드를 호출합니다.
 Atlas.Start("sdk_…");

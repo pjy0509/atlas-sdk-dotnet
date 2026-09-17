@@ -33,7 +33,7 @@ Install-Package AppAtlas.Sdk
 <!-- tabs:start -->
 #### C#
 
-```csharp
+```csharp title="App.xaml.cs (WinUI 3)"
 // App.xaml.cs (WinUI 3): OnLaunched。WPF 与控制台应用在各自的启动
 // 位置调用同样的两个方法。
 Atlas.Start("sdk_…");
