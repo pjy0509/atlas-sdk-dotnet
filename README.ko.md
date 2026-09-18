@@ -247,16 +247,16 @@ End Sub
 
 | 죽는 방식 | 잡는 방법 |
 |---|---|
-| 어느 스레드든 미처리 예외, async 경로 포함 | 모든 호스트에 있는 백스톱 `AppDomain.UnhandledException`. 핸들러가 돌아오면 프로세스가 끝나므로 그 순간 디스크에 씁니다 |
-| 아무도 await하지 않은 Task의 예외 | `TaskScheduler.UnobservedTaskException`. 처리된 오류로 보고합니다 |
-| WPF, WinForms, WinUI 3의 UI 스레드 예외 | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`. 그 프레임워크가 로드돼 있을 때 이름으로 연결되며, 앱이 처리 여부를 정하기 전이므로 오류로 보고합니다. 아무도 처리하지 않으면 백스톱이 크래시를 씁니다 |
-| 네이티브 사망: 인터롭의 액세스 위반, 스택 오버플로, `FailFast`, 힙 손상 | Windows Error Reporting의 LocalDumps. 시작 때 이 실행 파일에 대해 사용자 레지스트리 하이브에 등록하고, 남긴 덤프를 다음 실행 때 읽어 예외 코드, 폴트 주소, 그 모듈을 얻은 뒤 지웁니다 |
-| UI 스레드 행 | 워치독: UI 스레드의 `SynchronizationContext`로 5초 동안 답이 없으면 freeze당 한 번. 그런 스레드가 있을 때만입니다 |
-| 설명할 수 없는 죽음 — kill, 덤프가 못 잡은 스택 오버플로, 전원 차단 | 프로세스 id별로 남기는 실행 기록. 크래시도 덤프도 종료 이벤트도 없으면 세션을 abnormal로 끝내고, 이슈는 만들지 않습니다 |
+| 어느 스레드든 미처리 예외, async 경로 포함. | 모든 호스트에 있는 백스톱 `AppDomain.UnhandledException`. 핸들러가 돌아오면 프로세스가 끝나므로 그 순간 디스크에 씁니다. |
+| 아무도 await하지 않은 Task의 예외. | `TaskScheduler.UnobservedTaskException`. 처리된 오류로 보고합니다. |
+| WPF, WinForms, WinUI 3의 UI 스레드 예외. | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`. 그 프레임워크가 로드돼 있을 때 이름으로 연결되며, 앱이 처리 여부를 정하기 전이므로 오류로 보고합니다. 아무도 처리하지 않으면 백스톱이 크래시를 씁니다. |
+| 네이티브 사망: 인터롭의 액세스 위반, 스택 오버플로, `FailFast`, 힙 손상. | Windows Error Reporting의 LocalDumps. 시작 때 이 실행 파일에 대해 사용자 레지스트리 하이브에 등록하고, 남긴 덤프를 다음 실행 때 읽어 예외 코드, 폴트 주소, 그 모듈을 얻은 뒤 지웁니다. |
+| UI 스레드 행. | 워치독: UI 스레드의 `SynchronizationContext`로 5초 동안 답이 없으면 freeze당 한 번. 그런 스레드가 있을 때만입니다. |
+| 설명할 수 없는 죽음: kill, 덤프가 못 잡은 스택 오버플로, 전원 차단. | 프로세스 id별로 남기는 실행 기록. 크래시도 덤프도 종료 이벤트도 없으면 세션을 abnormal로 끝내고, 이슈는 만들지 않습니다. |
 
-크래시는 죽어 가는 스레드에서 세션 종료 상태와 함께 디스크에 먼저 기록되고
-— crash-free 세션은 이 세션으로 계산합니다 — 끝나는 프로세스가 감당할 수
-있는 2초 동안 전송을 시도합니다. 떠나지 못한 것은 다음 실행 때 떠납니다.
+크래시는 죽어 가는 스레드에서 세션 종료 상태와 함께 디스크에 먼저 기록되고,
+끝나는 프로세스가 감당할 수 있는 2초 동안 전송을 시도합니다. crash-free
+세션은 이 세션으로 계산합니다. 떠나지 못한 것은 다음 실행 때 떠납니다.
 모든 리포트에 최근 브레드크럼 100개, 키 64개, `AtlasCrash.Log`의 최근 64KB,
 그리고 그 순간의 프로세스 상태가 실립니다. 워킹 셋, 관리 힙, 남은 디스크,
 스레드·핸들 수입니다. 시작 후 5초 안에 난 크래시는 다음 실행에서 가장 먼저
@@ -271,7 +271,7 @@ End Sub
 
 `AtlasCrash.SetEnabled(false)`는 수집을 멈추고 그 선택을 기억합니다. 동의
 화면에 씁니다. `AtlasCrash.CrashedLastRun`은 이전 실행이 이 SDK가 기록한
-크래시로 — 자기 것이든, OS가 남긴 덤프든 — 끝났는지 알려 줍니다.
+크래시로 끝났는지 알려 줍니다. 자기 것이든, OS가 남긴 덤프든 마찬가지입니다.
 
 ## 프라이버시
 

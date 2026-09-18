@@ -239,26 +239,26 @@ End Sub
 
 | 死亡方式 | 捕获方式 |
 |---|---|
-| 任意线程的未处理异常，含 async 路径 | 每个宿主都有的兜底 `AppDomain.UnhandledException`——处理器返回时进程即结束，因此当场写入磁盘 |
-| 无人 await 的 Task 的异常 | `TaskScheduler.UnobservedTaskException`，作为已处理错误上报 |
-| WPF、WinForms、WinUI 3 UI 线程上的异常 | `Dispatcher.UnhandledException`、`Application.ThreadException`、`Application.UnhandledException`——该框架已加载时按名称挂接，在应用决定之前作为错误上报；若无人处理，兜底仍会写下崩溃 |
-| 原生死亡：互操作中的访问违规、栈溢出、`FailFast`、堆损坏 | Windows Error Reporting 的 LocalDumps，启动时在用户自己的注册表配置单元下为本可执行文件注册；留下的转储在下次启动时读取异常代码、故障地址及其模块，随后删除 |
-| UI 线程卡死 | 看门狗：经 UI 线程的 `SynchronizationContext` 5 秒无应答，每次冻结一次；仅当存在这样的线程时 |
-| 无法解释的死亡——kill、转储未能捕获的栈溢出、断电 | 按进程 id 保存的运行记录：无崩溃、无转储、无退出事件即将会话结束为 abnormal，不虚构问题 |
+| 任意线程的未处理异常，含 async 路径。 | 每个宿主都有的兜底 `AppDomain.UnhandledException`；处理器返回时进程即结束，因此当场写入磁盘。 |
+| 无人 await 的 Task 的异常。 | `TaskScheduler.UnobservedTaskException`，作为已处理错误上报。 |
+| WPF、WinForms、WinUI 3 UI 线程上的异常。 | `Dispatcher.UnhandledException`、`Application.ThreadException`、`Application.UnhandledException`；该框架已加载时按名称挂接，在应用决定之前作为错误上报；若无人处理，兜底仍会写下崩溃。 |
+| 原生死亡：互操作中的访问违规、栈溢出、`FailFast`、堆损坏。 | Windows Error Reporting 的 LocalDumps，启动时在用户自己的注册表配置单元下为本可执行文件注册；留下的转储在下次启动时读取异常代码、故障地址及其模块，随后删除。 |
+| UI 线程卡死。 | 看门狗：经 UI 线程的 `SynchronizationContext` 5 秒无应答，每次冻结一次；仅当存在这样的线程时。 |
+| 无法解释的死亡：kill、转储未能捕获的栈溢出、断电。 | 按进程 id 保存的运行记录：无崩溃、无转储、无退出事件即将会话结束为 abnormal，不虚构问题。 |
 
-崩溃在垂死线程上连同其会话的结束一起先写入磁盘——crash-free 会话正是据此统计——
+崩溃在垂死线程上连同其会话的结束一起先写入磁盘，crash-free 会话正是据此统计，
 然后在一个即将终止的进程所能承受的 2 秒内尝试发送；未能送出的在下次启动时发送。
 每份报告携带最近 100 条面包屑、至多 64 个键、`AtlasCrash.Log` 最新的 64 KB，以及那
 一刻的进程状态：工作集、托管堆、剩余磁盘、线程与句柄数。启动后 5 秒内的崩溃会在
 下次启动时最先发送。
 
-帧按源码中的写法命名声明类型与方法——async 状态机、lambda 与本地函数会被还原为
-原名——只要构建在程序集旁附带了 PDB 便带有文件与行号，并始终携带方法 token、IL
+帧按源码中的写法命名声明类型与方法，async 状态机、lambda 与本地函数会被还原为
+原名。只要构建在程序集旁附带了 PDB 便带有文件与行号，并始终携带方法 token、IL
 偏移与模块的 debug id，因此剥离了 PDB 的构建以后仍可解析。同一可执行文件的多个
 实例各自保有队列与记录，死去实例的遗留由下一个启动的实例接收。
 
 `AtlasCrash.SetEnabled(false)` 停止收集并记住该选择，用于同意界面。
-`AtlasCrash.CrashedLastRun` 告知上一次运行是否以本 SDK 记录的崩溃结束——
+`AtlasCrash.CrashedLastRun` 告知上一次运行是否以本 SDK 记录的崩溃结束，
 无论是它自己写下的，还是系统留下的转储。
 
 ## 隐私

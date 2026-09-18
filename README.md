@@ -75,7 +75,7 @@ run time.
 ### What it does with the disk
 
 Envelopes are written before any network attempt, in a directory keyed by
-process id — desktop apps run several instances of one executable as a matter
+process id. Desktop apps run several instances of one executable as a matter
 of course, and two senders over one directory is a corruption waiting to
 happen. At start, the queue adopts what dead instances left behind, so the
 envelope written moments before a crash still leaves.
@@ -247,12 +247,12 @@ What is caught, with no call beyond `Atlas.Start`:
 
 | Death | How it is caught |
 |---|---|
-| An unhandled exception on any thread, async paths included | `AppDomain.UnhandledException`, the backstop every host has — written to disk at that instant, since the process ends when the handler returns |
-| An exception a task nobody awaited | `TaskScheduler.UnobservedTaskException`, reported as a handled error |
-| An exception on the UI thread of WPF, WinForms or WinUI 3 | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException` — attached by name when that framework is loaded, reported as an error before the app decides; the backstop still writes the crash if nothing handles it |
-| A native death: an access violation in interop, a stack overflow, `FailFast`, heap corruption | Windows Error Reporting's LocalDumps, registered for this executable under the user's own registry hive at start; the dump it leaves is read at the next start for the exception code, the faulting address and its module, then deleted |
-| A UI-thread hang | A watchdog: five seconds without an answer through the UI thread's `SynchronizationContext`, once per freeze; only where such a thread exists |
-| A death nothing explains — a kill, a stack overflow no dump caught, a power cut | The run's own record, kept per process id: no crash, no dump, no exit event ends the session as abnormal, and invents no issue |
+| An unhandled exception on any thread, async paths included. | `AppDomain.UnhandledException`, the backstop every host has; written to disk at that instant, since the process ends when the handler returns. |
+| An exception a task nobody awaited. | `TaskScheduler.UnobservedTaskException`, reported as a handled error. |
+| An exception on the UI thread of WPF, WinForms or WinUI 3 | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`, attached by name when that framework is loaded, reported as an error before the app decides; the backstop still writes the crash if nothing handles it. |
+| A native death: an access violation in interop, a stack overflow, `FailFast`, heap corruption. | Windows Error Reporting's LocalDumps, registered for this executable under the user's own registry hive at start; the dump it leaves is read at the next start for the exception code, the faulting address and its module, then deleted. |
+| A UI-thread hang. | A watchdog: five seconds without an answer through the UI thread's `SynchronizationContext`, once per freeze; only where such a thread exists. |
+| A death nothing explains: a kill, a stack overflow no dump caught, a power cut. | The run's own record, kept per process id: no crash, no dump, no exit event ends the session as abnormal, and invents no issue. |
 
 A crash is written to disk on the dying thread together with the end of its
 session, which is what crash-free sessions are counted from, then flushed for
@@ -262,17 +262,17 @@ keys, the newest 64 KB of `AtlasCrash.Log` lines, and the process's state at
 that moment: working set, managed heap, free disk, thread and handle counts.
 A crash within five seconds of start is sent first thing at the next start.
 
-Frames name the declaring type and method as the source spells them — async
-state machines, lambdas and local functions are given back their names — with
-the file and line whenever the build shipped its PDB beside the assembly, and
-always with the method token, IL offset and the module's debug id, so a build
+Frames name the declaring type and method as the source spells them, and async
+state machines, lambdas and local functions are given back their names. They
+carry the file and line whenever the build shipped its PDB beside the assembly,
+and always the method token, IL offset and the module's debug id, so a build
 that strips its PDBs can still be resolved later. Several instances of one
 executable keep separate queues and records, and a dead instance's leftovers
 are adopted by the next one to start.
 
 `AtlasCrash.SetEnabled(false)` stops collection and remembers the choice, for
 a consent screen. `AtlasCrash.CrashedLastRun` says whether a previous run
-ended in a crash this SDK recorded — its own, or the dump the OS left.
+ended in a crash this SDK recorded: its own, or the dump the OS left.
 
 ## Privacy
 
