@@ -1,0 +1,5 @@
+{"sdk":{"name":"atlas-dotnet","version":"0.1.0"},"sentAt":"2026-09-18T01:00:05Z","installId":"c1a2b3d4e5f60718","device":{"os":"windows","osVersion":"10.0.22631","arch":"x64"},"app":{"version":"3.2.1","build":"151"}}
+{"type":"error","length":500}
+{"eventId":"44444444-0000-0000-0000-000000000003","crashedAt":"2026-09-18T01:00:00Z","sessionId":"55555555-0000-0000-0000-000000000001","mechanism":{"type":"recordError","handled":true},"exceptions":[{"type":"System.ArgumentNullException","message":"price was null (Parameter 'price')","frames":[{"module":"Shop.Checkout.CartPage","function":"OnBuy","file":"CartPage.xaml.cs","line":42,"methodToken":"0x06000012","ilOffset":17,"debugId":"5db7294d-87fc-4726-a5c0-4a90679657b5-1","assembly":"Shop"}]}]}
+{"type":"session","length":153}
+{"eventId":"44444444-0000-0000-0000-000000000004","sid":"55555555-0000-0000-0000-000000000001","status":"ok","started":"2026-09-18T00:58:00Z","errors":1}

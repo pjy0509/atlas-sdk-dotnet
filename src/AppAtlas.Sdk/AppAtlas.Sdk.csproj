@@ -11,7 +11,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>AppAtlas.Sdk</RootNamespace>
     <AssemblyName>AppAtlas.Sdk</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
@@ -20,13 +20,13 @@
   <PropertyGroup>
     <PackageId>AppAtlas.Sdk</PackageId>
     <Authors>Park Jungyoung</Authors>
-    <Description>App Atlas SDK for .NET: deep-link inflow and telemetry. Runs on .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI and Unity; on Windows targets a packaged app claims its deferred link automatically.</Description>
+    <Description>App Atlas SDK for .NET: deep-link inflow, crash reporting and telemetry. Unhandled exceptions from every hook the host has, native deaths through WER LocalDumps, UI hangs, sessions. Runs on .NET Framework 4.6.1+, .NET Core/5+, UWP, WinUI and Unity; on Windows targets a packaged app claims its deferred link automatically.</Description>
     <PackageProjectUrl>https://appatlas.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/pjy0509/atlas-sdk-dotnet</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>appatlas;deeplink;attribution;telemetry</PackageTags>
+    <PackageTags>appatlas;deeplink;attribution;crash;crashlytics;telemetry</PackageTags>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>

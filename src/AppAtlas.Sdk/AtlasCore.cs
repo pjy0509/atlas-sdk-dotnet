@@ -15,7 +15,7 @@ namespace AppAtlas.Sdk
     /// </summary>
     public sealed class AtlasCore
     {
-        internal const string Version = "0.1.0";
+        internal const string Version = "0.3.0";
 
         private readonly string _sdkName;
         private readonly Dictionary<string, object> _context;
@@ -58,21 +58,81 @@ namespace AppAtlas.Sdk
         /// serialization happens on the caller's thread.</summary>
         public void Enqueue(string type, Dictionary<string, object> payload)
         {
-            var envelope = new EnvelopeWriter(_sdkName, Version, IsoNow(), InstallId, _context)
-                .Add(type, payload)
-                .Bytes();
+            Batch().Add(type, payload).Enqueue();
+        }
 
-            _work.Add(() =>
+        /// <summary>Several items that must arrive together: a crash and its
+        /// session's end.</summary>
+        public EnvelopeBatch Batch()
+        {
+            return new EnvelopeBatch(this, new EnvelopeWriter(_sdkName, Version, IsoNow(), InstallId, _context));
+        }
+
+        /// <summary>One envelope holding several items, sent together or not at all.</summary>
+        public sealed class EnvelopeBatch
+        {
+            private readonly AtlasCore _core;
+            private readonly EnvelopeWriter _writer;
+
+            internal EnvelopeBatch(AtlasCore core, EnvelopeWriter writer)
             {
-                _queue.Offer(envelope);
-                Drain();
-            });
+                _core = core;
+                _writer = writer;
+            }
+
+            public EnvelopeBatch Add(string type, Dictionary<string, object> payload)
+            {
+                _writer.Add(type, payload);
+
+                return this;
+            }
+
+            /// <summary>Disk on the worker, then the wire.</summary>
+            public void Enqueue()
+            {
+                var envelope = _writer.Bytes();
+
+                _core._work.Add(() =>
+                {
+                    _core._queue.Offer(envelope);
+                    _core.Drain();
+                });
+            }
+
+            /// <summary>Disk on the caller's thread, synchronously, then the
+            /// wire from the worker. For a thread whose process is about to
+            /// die. False when the disk refused.</summary>
+            public bool PersistNow()
+            {
+                var written = _core._queue.Offer(_writer.Bytes()) != null;
+
+                if (written) _core.FlushSoon();
+
+                return written;
+            }
         }
 
         /// <summary>Drain whatever the disk holds.</summary>
         public void FlushSoon()
         {
             _work.Add(Drain);
+        }
+
+        /// <summary>Drain now and wait for it, up to the timeout: the last
+        /// thing a terminating process does, and the launch-crash fast path.</summary>
+        public void FlushWithin(int timeoutMs)
+        {
+            if (timeoutMs <= 0) return;
+
+            using (var done = new ManualResetEventSlim(false))
+            {
+                _work.Add(() =>
+                {
+                    Drain();
+                    done.Set();
+                });
+                done.Wait(timeoutMs);
+            }
         }
 
         /// <summary>Blocks until queued work has run; for tests, never app code.</summary>
@@ -141,9 +201,16 @@ namespace AppAtlas.Sdk
             }
         }
 
-        private static string IsoNow()
+        /// <summary>The wire's instant format, UTC to the second.</summary>
+        public static string IsoNow()
         {
-            return DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+            return Iso(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        }
+
+        public static string Iso(long epochMs)
+        {
+            return DateTimeOffset.FromUnixTimeMilliseconds(epochMs)
+                .ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         }
     }
 }

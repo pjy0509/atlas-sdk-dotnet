@@ -19,7 +19,7 @@ dotnet add package AppAtlas.Sdk
 #### .csproj
 
 ```xml
-<PackageReference Include="AppAtlas.Sdk" Version="0.1.0" />
+<PackageReference Include="AppAtlas.Sdk" Version="0.3.0" />
 ```
 
 #### Package Manager Console
@@ -42,7 +42,7 @@ Install-Package AppAtlas.Sdk
 protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 {
     Atlas.Start("sdk_…");
-    // 모듈(Links, 이후 Push·Crash)은 여기서부터 배선합니다.
+    // 모듈(Links, Crash)은 여기서부터 배선합니다.
 
     // … 창 생성
 }
@@ -56,10 +56,21 @@ protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs ar
 Protected Overrides Sub OnStartup(e As StartupEventArgs)
     MyBase.OnStartup(e)
     Atlas.Start("sdk_…")
-    ' 모듈(Links, 이후 Push·Crash)은 여기서부터 배선합니다.
+    ' 모듈(Links, Crash)은 여기서부터 배선합니다.
 End Sub
 ```
 <!-- tabs:end -->
+
+### 모듈
+
+| 네임스페이스 | 역할 |
+|---|---|
+| `AppAtlas.Sdk` | 엔벨로프, 디스크 큐, 전송기. 모든 모듈의 바탕입니다. |
+| `AppAtlas.Sdk.Links` | 딥링크 유입: 프로토콜 활성화와 스토어 캠페인 id. |
+| `AppAtlas.Sdk.Crash` | 크래시 리포팅: 호스트가 가진 모든 훅의 미처리 예외, WER를 통한 네이티브 사망, UI 행, 세션. |
+
+어셈블리 하나에 셋이 다 들어 있으며, 앱이 부르지 않는 모듈은 실행 시
+비용이 없습니다.
 
 ### 디스크를 다루는 방식
 
@@ -161,6 +172,107 @@ netstandard 자산이 대신 읽지 않는 것은 의도된 선택입니다. 그
 `AtlasLinks.FirstReferringLink()`는 설치를 만든 링크를 언제까지나
 돌려줍니다.
 
+## Crash
+
+<!-- tabs:start -->
+#### C#
+
+```csharp title="App.xaml.cs (WPF)"
+// App.xaml.cs (WPF): WinForms와 콘솔 앱도 각자의 시작 경로에서 같은 방식으로
+// Atlas.Start를 부릅니다.
+protected override void OnStartup(StartupEventArgs e)
+{
+    base.OnStartup(e);
+    Atlas.Start("sdk_…");
+    // 이 줄부터 크래시, 행, 네이티브 사망이 잡힙니다. 나머지는 선택입니다.
+
+    // 로그인한 사용자의 여러분 쪽 id와, 크래시 옆에서 보고 싶은 상태.
+    AtlasCrash.SetUserId("u-123");
+    AtlasCrash.SetKey("screen", "checkout");
+    AtlasCrash.LeaveBreadcrumb("cart", "add");
+    AtlasCrash.Log("cart total recomputed");
+}
+```
+
+```csharp title="CheckoutPage.xaml.cs"
+// CheckoutPage.xaml.cs: 예외를 잡았지만 알아 둘 가치가 있는 곳 어디서든.
+private void Pay()
+{
+    try
+    {
+        cart.Charge();
+    }
+    catch (PaymentException error)
+    {
+        AtlasCrash.RecordError(error);
+        // 앱 자체의 복구는 여기에. 예:
+        // ShowRetry();
+    }
+}
+```
+
+#### Visual Basic
+
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF): WinForms와 콘솔 앱도 각자의 시작 경로에서 같은
+' 방식으로 Atlas.Start를 부릅니다.
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
+    ' 이 줄부터 크래시, 행, 네이티브 사망이 잡힙니다. 나머지는 선택입니다.
+
+    ' 로그인한 사용자의 여러분 쪽 id와, 크래시 옆에서 보고 싶은 상태.
+    AtlasCrash.SetUserId("u-123")
+    AtlasCrash.SetKey("screen", "checkout")
+    AtlasCrash.LeaveBreadcrumb("cart", "add")
+    AtlasCrash.Log("cart total recomputed")
+End Sub
+```
+
+```vb title="CheckoutPage.xaml.vb"
+' CheckoutPage.xaml.vb: 예외를 잡았지만 알아 둘 가치가 있는 곳 어디서든.
+Private Sub Pay()
+    Try
+        cart.Charge()
+    Catch err As PaymentException
+        AtlasCrash.RecordError(err)
+        ' 앱 자체의 복구는 여기에. 예:
+        ' ShowRetry()
+    End Try
+End Sub
+```
+<!-- tabs:end -->
+
+`Atlas.Start` 외에 아무 호출 없이 잡히는 것:
+
+| 죽는 방식 | 잡는 방법 |
+|---|---|
+| 어느 스레드든 미처리 예외, async 경로 포함 | 모든 호스트에 있는 백스톱 `AppDomain.UnhandledException`. 핸들러가 돌아오면 프로세스가 끝나므로 그 순간 디스크에 씁니다 |
+| 아무도 await하지 않은 Task의 예외 | `TaskScheduler.UnobservedTaskException`. 처리된 오류로 보고합니다 |
+| WPF, WinForms, WinUI 3의 UI 스레드 예외 | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`. 그 프레임워크가 로드돼 있을 때 이름으로 연결되며, 앱이 처리 여부를 정하기 전이므로 오류로 보고합니다. 아무도 처리하지 않으면 백스톱이 크래시를 씁니다 |
+| 네이티브 사망: 인터롭의 액세스 위반, 스택 오버플로, `FailFast`, 힙 손상 | Windows Error Reporting의 LocalDumps. 시작 때 이 실행 파일에 대해 사용자 레지스트리 하이브에 등록하고, 남긴 덤프를 다음 실행 때 읽어 예외 코드, 폴트 주소, 그 모듈을 얻은 뒤 지웁니다 |
+| UI 스레드 행 | 워치독: UI 스레드의 `SynchronizationContext`로 5초 동안 답이 없으면 freeze당 한 번. 그런 스레드가 있을 때만입니다 |
+| 설명할 수 없는 죽음 — kill, 덤프가 못 잡은 스택 오버플로, 전원 차단 | 프로세스 id별로 남기는 실행 기록. 크래시도 덤프도 종료 이벤트도 없으면 세션을 abnormal로 끝내고, 이슈는 만들지 않습니다 |
+
+크래시는 죽어 가는 스레드에서 세션 종료 상태와 함께 디스크에 먼저 기록되고
+— crash-free 세션은 이 세션으로 계산합니다 — 끝나는 프로세스가 감당할 수
+있는 2초 동안 전송을 시도합니다. 떠나지 못한 것은 다음 실행 때 떠납니다.
+모든 리포트에 최근 브레드크럼 100개, 키 64개, `AtlasCrash.Log`의 최근 64KB,
+그리고 그 순간의 프로세스 상태가 실립니다. 워킹 셋, 관리 힙, 남은 디스크,
+스레드·핸들 수입니다. 시작 후 5초 안에 난 크래시는 다음 실행에서 가장 먼저
+전송됩니다.
+
+프레임은 소스에 쓰인 대로 선언 타입과 메서드를 이름합니다. async 상태 머신,
+람다, 로컬 함수는 원래 이름을 돌려받습니다. 빌드가 어셈블리 옆에 PDB를
+동봉했으면 파일과 행이 함께 오고, 메서드 토큰·IL 오프셋·모듈의 debug id는
+항상 실리므로 PDB를 뺀 빌드도 나중에 풀 수 있습니다. 한 실행 파일의 여러
+인스턴스는 큐와 기록을 따로 가지며, 죽은 인스턴스가 남긴 것은 다음에 뜨는
+인스턴스가 거둬들입니다.
+
+`AtlasCrash.SetEnabled(false)`는 수집을 멈추고 그 선택을 기억합니다. 동의
+화면에 씁니다. `AtlasCrash.CrashedLastRun`은 이전 실행이 이 SDK가 기록한
+크래시로 — 자기 것이든, OS가 남긴 덤프든 — 끝났는지 알려 줍니다.
+
 ## 프라이버시
 
 SDK는 설치 단위의 난수 id 하나를 만들 뿐, 머신 식별자나 하드웨어
@@ -174,7 +286,8 @@ SDK는 설치 단위의 난수 id 하나를 만들 뿐, 머신 식별자나 하�
 
 ```sh
 sh check-core.sh                             # 빌드, 인프로세스 리스너로 흐름 실행,
-                                             # 골든 바이트 비교
+                                             # 자기 자신을 victim으로 띄워 크래시 훅이
+                                             # 잡는 방식마다 죽여 보고, 골든 바이트 비교
 ATLAS_SERVER=../app-atlas sh check-core.sh   # 서버의 실제 파서까지
 ```
 

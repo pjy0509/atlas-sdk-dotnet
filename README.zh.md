@@ -19,7 +19,7 @@ dotnet add package AppAtlas.Sdk
 #### .csproj
 
 ```xml
-<PackageReference Include="AppAtlas.Sdk" Version="0.1.0" />
+<PackageReference Include="AppAtlas.Sdk" Version="0.3.0" />
 ```
 
 #### Package Manager Console
@@ -42,7 +42,7 @@ Install-Package AppAtlas.Sdk
 protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
 {
     Atlas.Start("sdk_…");
-    // 各模块（Links，之后的 Push 与 Crash）从这里开始接线。
+    // 各模块（Links、Crash）从这里开始接线。
 
     // … 创建窗口
 }
@@ -56,10 +56,20 @@ protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs ar
 Protected Overrides Sub OnStartup(e As StartupEventArgs)
     MyBase.OnStartup(e)
     Atlas.Start("sdk_…")
-    ' 各模块（Links，之后的 Push 与 Crash）从这里开始接线。
+    ' 各模块（Links、Crash）从这里开始接线。
 End Sub
 ```
 <!-- tabs:end -->
+
+### 模块
+
+| 命名空间 | 作用 |
+|---|---|
+| `AppAtlas.Sdk` | 信封、磁盘队列、发送器。所有模块的基础。 |
+| `AppAtlas.Sdk.Links` | 深层链接流入：协议激活与商店活动 id。 |
+| `AppAtlas.Sdk.Crash` | 崩溃报告：宿主所有钩子的未处理异常、经 WER 的原生死亡、UI 卡死、会话。 |
+
+三者同在一个程序集中；应用不调用的模块在运行时没有开销。
 
 ### 它如何使用磁盘
 
@@ -156,6 +166,101 @@ netstandard 资产有意不替你读取：读取它需要 WinRT，而 WinRT 在�
 
 `AtlasLinks.FirstReferringLink()` 永久返回产生这次安装的链接。
 
+## Crash
+
+<!-- tabs:start -->
+#### C#
+
+```csharp title="App.xaml.cs (WPF)"
+// App.xaml.cs (WPF)：WinForms 与控制台应用同样在各自的启动路径中调用 Atlas.Start。
+protected override void OnStartup(StartupEventArgs e)
+{
+    base.OnStartup(e);
+    Atlas.Start("sdk_…");
+    // 从这一行起，崩溃、卡死与原生死亡都会被捕获。其余均为可选。
+
+    // 你方的已登录用户 id，以及值得与崩溃一起查看的状态。
+    AtlasCrash.SetUserId("u-123");
+    AtlasCrash.SetKey("screen", "checkout");
+    AtlasCrash.LeaveBreadcrumb("cart", "add");
+    AtlasCrash.Log("cart total recomputed");
+}
+```
+
+```csharp title="CheckoutPage.xaml.cs"
+// CheckoutPage.xaml.cs：任何捕获了异常却仍值得知晓的地方。
+private void Pay()
+{
+    try
+    {
+        cart.Charge();
+    }
+    catch (PaymentException error)
+    {
+        AtlasCrash.RecordError(error);
+        // 应用自身的恢复逻辑放在这里。例如：
+        // ShowRetry();
+    }
+}
+```
+
+#### Visual Basic
+
+```vb title="Application.xaml.vb (WPF)"
+' Application.xaml.vb (WPF)：WinForms 与控制台应用同样在各自的启动路径中调用 Atlas.Start。
+Protected Overrides Sub OnStartup(e As StartupEventArgs)
+    MyBase.OnStartup(e)
+    Atlas.Start("sdk_…")
+    ' 从这一行起，崩溃、卡死与原生死亡都会被捕获。其余均为可选。
+
+    ' 你方的已登录用户 id，以及值得与崩溃一起查看的状态。
+    AtlasCrash.SetUserId("u-123")
+    AtlasCrash.SetKey("screen", "checkout")
+    AtlasCrash.LeaveBreadcrumb("cart", "add")
+    AtlasCrash.Log("cart total recomputed")
+End Sub
+```
+
+```vb title="CheckoutPage.xaml.vb"
+' CheckoutPage.xaml.vb：任何捕获了异常却仍值得知晓的地方。
+Private Sub Pay()
+    Try
+        cart.Charge()
+    Catch err As PaymentException
+        AtlasCrash.RecordError(err)
+        ' 应用自身的恢复逻辑放在这里。例如：
+        ' ShowRetry()
+    End Try
+End Sub
+```
+<!-- tabs:end -->
+
+除 `Atlas.Start` 外无需任何调用即可捕获：
+
+| 死亡方式 | 捕获方式 |
+|---|---|
+| 任意线程的未处理异常，含 async 路径 | 每个宿主都有的兜底 `AppDomain.UnhandledException`——处理器返回时进程即结束，因此当场写入磁盘 |
+| 无人 await 的 Task 的异常 | `TaskScheduler.UnobservedTaskException`，作为已处理错误上报 |
+| WPF、WinForms、WinUI 3 UI 线程上的异常 | `Dispatcher.UnhandledException`、`Application.ThreadException`、`Application.UnhandledException`——该框架已加载时按名称挂接，在应用决定之前作为错误上报；若无人处理，兜底仍会写下崩溃 |
+| 原生死亡：互操作中的访问违规、栈溢出、`FailFast`、堆损坏 | Windows Error Reporting 的 LocalDumps，启动时在用户自己的注册表配置单元下为本可执行文件注册；留下的转储在下次启动时读取异常代码、故障地址及其模块，随后删除 |
+| UI 线程卡死 | 看门狗：经 UI 线程的 `SynchronizationContext` 5 秒无应答，每次冻结一次；仅当存在这样的线程时 |
+| 无法解释的死亡——kill、转储未能捕获的栈溢出、断电 | 按进程 id 保存的运行记录：无崩溃、无转储、无退出事件即将会话结束为 abnormal，不虚构问题 |
+
+崩溃在垂死线程上连同其会话的结束一起先写入磁盘——crash-free 会话正是据此统计——
+然后在一个即将终止的进程所能承受的 2 秒内尝试发送；未能送出的在下次启动时发送。
+每份报告携带最近 100 条面包屑、至多 64 个键、`AtlasCrash.Log` 最新的 64 KB，以及那
+一刻的进程状态：工作集、托管堆、剩余磁盘、线程与句柄数。启动后 5 秒内的崩溃会在
+下次启动时最先发送。
+
+帧按源码中的写法命名声明类型与方法——async 状态机、lambda 与本地函数会被还原为
+原名——只要构建在程序集旁附带了 PDB 便带有文件与行号，并始终携带方法 token、IL
+偏移与模块的 debug id，因此剥离了 PDB 的构建以后仍可解析。同一可执行文件的多个
+实例各自保有队列与记录，死去实例的遗留由下一个启动的实例接收。
+
+`AtlasCrash.SetEnabled(false)` 停止收集并记住该选择，用于同意界面。
+`AtlasCrash.CrashedLastRun` 告知上一次运行是否以本 SDK 记录的崩溃结束——
+无论是它自己写下的，还是系统留下的转储。
+
 ## 隐私
 
 SDK 只生成一个安装范围内的随机 id，不读取任何机器或硬件标识符。
@@ -168,7 +273,8 @@ SDK 只生成一个安装范围内的随机 id，不读取任何机器或硬件�
 
 ```sh
 sh check-core.sh                             # 构建、对进程内监听器跑通流程、
-                                             # 比对黄金字节
+                                             # 把自身作为受害进程按崩溃钩子能捕获的
+                                             # 每种方式杀死、比对黄金字节
 ATLAS_SERVER=../app-atlas sh check-core.sh   # 再加服务器的真实解析器
 ```
 

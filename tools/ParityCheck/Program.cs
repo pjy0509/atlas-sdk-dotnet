@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -25,22 +26,52 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        // The crash gate spawns this very binary as a victim, and as the
+        // start that comes after it.
+        if (args.Length >= 4 && args[0] == "--victim") return CrashChecks.Victim(args[1], args[2], args[3]);
+        if (args.Length >= 3 && args[0] == "--boot") return CrashChecks.BootChild(args[1], args[2]);
+
         var outDir = args[0];
         Directory.CreateDirectory(outDir);
 
         using var listener = StartMock(out var baseUrl);
 
         WriteSamples(outDir);
+        CrashChecks.WriteSamples(outDir);
         CheckQueueAndAdoption(Path.Combine(outDir, "queue"));
         CheckTransport(baseUrl);
         CheckLinkUrl();
         CheckJsonRoundTrip();
+        CrashChecks.CheckReports();
+        CrashChecks.CheckScope();
+        CrashChecks.CheckDebugId();
+        CrashChecks.CheckMinidump();
+        CrashChecks.CheckWatchdog();
+        CrashChecks.CheckProcessDeaths(outDir);
         CheckLinksFlow(baseUrl, outDir);
 
         File.WriteAllText(Path.Combine(outDir, "claim-request.json"), _claimCapture);
-        Console.WriteLine("parity: windows envelopes, queue, adoption, transport and links hold");
+        Console.WriteLine("parity: windows envelopes, queue, adoption, transport, crash and links hold");
 
         return 0;
+    }
+
+    /// <summary>This binary again, with arguments; the exit status.</summary>
+    internal static int RunChild(string[] arguments)
+    {
+        var self = Process.GetCurrentProcess().MainModule.FileName;
+        var start = new ProcessStartInfo(self) {UseShellExecute = false, RedirectStandardError = true};
+        var isDotnetHost = Path.GetFileNameWithoutExtension(self).Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+
+        if (isDotnetHost) start.ArgumentList.Add(typeof(Program).Assembly.Location);
+
+        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+
+        using var child = Process.Start(start);
+        child.StandardError.ReadToEnd();
+        child.WaitForExit();
+
+        return child.ExitCode;
     }
 
     private static void WriteSamples(string outDir)
@@ -207,15 +238,15 @@ internal static class Program
         return Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic, null, args, null);
     }
 
-    private sealed class EnvelopeWriterProxy
+    internal sealed class EnvelopeWriterProxy
     {
         private readonly object _writer;
 
-        internal EnvelopeWriterProxy(string sdkName, Dictionary<string, object> context)
+        internal EnvelopeWriterProxy(string sdkName, Dictionary<string, object> context, string sentAt = "2026-09-15T09:00:00Z")
         {
             var type = typeof(AtlasLink).Assembly.GetType("AppAtlas.Sdk.EnvelopeWriter");
             _writer = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic, null,
-                new object[] {sdkName, "0.1.0", "2026-09-15T09:00:00Z", "c1a2b3d4e5f60718", context}, null);
+                new object[] {sdkName, "0.1.0", sentAt, "c1a2b3d4e5f60718", context}, null);
         }
 
         internal EnvelopeWriterProxy Add(string type, Dictionary<string, object> payload)
@@ -290,14 +321,14 @@ internal static class Program
         return listener;
     }
 
-    private static void SpinUntil(Func<bool> check)
+    internal static void SpinUntil(Func<bool> check)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);
 
         while (!check() && DateTime.UtcNow < deadline) Thread.Sleep(50);
     }
 
-    private static void Require(bool held, string complaint)
+    internal static void Require(bool held, string complaint)
     {
         if (held) return;
 

@@ -8,7 +8,7 @@ namespace AppAtlas.Sdk
     ///
     ///     Atlas.Start("sdk_…");
     ///
-    /// Modules (links, crash) attach to the core this creates; none of them
+    /// Modules (crash, links) attach to the core this creates; none of them
     /// touch the network or the disk on their own.
     /// </summary>
     public static class Atlas
@@ -51,6 +51,8 @@ namespace AppAtlas.Sdk
 
             // A single assembly holds every module, so the boot is a plain
             // call — the reflective dance is for platforms that split them.
+            // Crash first: its hooks should be in place before anything else runs.
+            Crash.AtlasCrash.Boot();
             Links.AtlasLinks.Boot();
         }
 
