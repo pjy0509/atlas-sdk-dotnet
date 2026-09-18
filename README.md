@@ -30,7 +30,8 @@ Install-Package AppAtlas.Sdk
 <!-- tabs:end -->
 
 <!-- guide:start -->
-## Start
+
+## Core
 
 <!-- tabs:start -->
 #### C#
@@ -59,6 +60,14 @@ Protected Overrides Sub OnStartup(e As StartupEventArgs)
 End Sub
 ```
 <!-- tabs:end -->
+
+### What it does with the disk
+
+Envelopes are written before any network attempt, in a directory keyed by
+process id — desktop apps run several instances of one executable as a matter
+of course, and two senders over one directory is a corruption waiting to
+happen. At start, the queue adopts what dead instances left behind, so the
+envelope written moments before a crash still leaves.
 
 ## Links
 
@@ -118,7 +127,7 @@ End Sub
 A link that arrives before the listener is attached is queued and replayed, so
 an activation at startup is never lost.
 
-## The deferred link
+### The deferred link
 
 The Microsoft Store carries a campaign id through the install. An app
 targeting `net8.0-windows10.0.17763` or later with package identity claims it
@@ -152,19 +161,12 @@ automatic path lives there alone.
 `AtlasLinks.FirstReferringLink()` returns the link that produced the install,
 forever.
 
-## What it does with the disk
-
-Envelopes are written before any network attempt, in a directory keyed by
-process id — desktop apps run several instances of one executable as a matter
-of course, and two senders over one directory is a corruption waiting to
-happen. At start, the queue adopts what dead instances left behind, so the
-envelope written moments before a crash still leaves.
-
 ## Privacy
 
 The SDK mints an install-scoped random id and reads no machine or hardware
 identifier. Device context (OS version, architecture, runtime, locale,
 timezone, app version) is the standard crash-report set and identifies no one.
+
 <!-- guide:end -->
 
 ## Checks
