@@ -4,7 +4,15 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>disable</Nullable>
+    <!-- The package's targets, imported by path here since this is a project
+         reference: the key is stamped into this assembly and read back by
+         the gate; the startup hook stays off so the victims start on their own. -->
+    <AtlasSdkKey>sdk_stamped</AtlasSdkKey>
+    <AtlasBaseUrl>http://127.0.0.1:9</AtlasBaseUrl>
+    <AtlasAutoStart>false</AtlasAutoStart>
   </PropertyGroup>
+
+  <Import Project="../../src/AppAtlas.Sdk/buildTransitive/AppAtlas.Sdk.targets" />
 
   <ItemGroup>
     <ProjectReference Include="../../src/AppAtlas.Sdk/AppAtlas.Sdk.csproj" />

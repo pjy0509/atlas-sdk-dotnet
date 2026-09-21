@@ -31,8 +31,10 @@ namespace AppAtlas.Sdk.Crash
         private static RunState _run;
         private static ManagedHooks _hooks;
         private static HangWatchdog _watchdog;
+        private static Timer _watchdogSearch;
         private static string _dataDir;
         private static bool _werRegistered;
+        private static bool _filterInstalled;
 
         /// <summary>Called by Atlas.Start; not application API.</summary>
         internal static void Boot()
@@ -84,6 +86,7 @@ namespace AppAtlas.Sdk.Crash
 
             _hooks = new ManagedHooks(_reporter);
             _hooks.Install();
+            _filterInstalled = NativeCrashFilter.Install(_reporter);
             _werRegistered = WerDumps.Register(dumpDir);
 
             try
@@ -98,17 +101,48 @@ namespace AppAtlas.Sdk.Crash
             {
             }
 
-            _watchdog = HangWatchdog.ForCurrentThread(stuckMs =>
+            Action<long> onHang = stuckMs =>
             {
                 _run.Set("hanging", true);
                 _run.Persist();
                 _reporter.Hang(stuckMs);
-            }, () =>
+            };
+            Action onRecover = () =>
             {
                 _run.Set("hanging", false);
                 _run.Persist();
-            });
+            };
+            _watchdog = HangWatchdog.ForCurrentThread(onHang, onRecover);
             _watchdog?.Start();
+
+            // Started before the app made its UI loop (the startup hook):
+            // look for the main thread's loop until it exists, for a minute.
+            if (_watchdog == null)
+            {
+                var main = Thread.CurrentThread;
+                var until = Environment.TickCount + ManagedHooks.RetryForMs;
+                _watchdogSearch = new Timer(_ =>
+                {
+                    lock (Lock)
+                    {
+                        if (_watchdog != null) return;
+
+                        var found = HangWatchdog.ForMainThread(main, onHang, onRecover);
+
+                        if (found != null)
+                        {
+                            _watchdog = found;
+                            found.Start();
+                        }
+
+                        if (found != null || Environment.TickCount - until > 0)
+                        {
+                            _watchdogSearch?.Dispose();
+                            _watchdogSearch = null;
+                        }
+                    }
+                }, null, 1000, 1000);
+            }
 
             // The dead instances' fates, off the caller's thread.
             var settle = new Thread(() =>
@@ -128,13 +162,14 @@ namespace AppAtlas.Sdk.Crash
         }
 
         /// <summary>Which hooks took, for the gate and for support: appDomain,
-        /// taskScheduler, wpf, winForms, winUI, wer, watchdog.</summary>
+        /// taskScheduler, wpf, winForms, winUI, avalonia, filter, wer, watchdog.</summary>
         internal static IReadOnlyList<string> Installed
         {
             get
             {
                 var all = new List<string>(_hooks?.Installed ?? new List<string>());
 
+                if (_filterInstalled) all.Add("filter");
                 if (_werRegistered) all.Add("wer");
                 if (_watchdog != null) all.Add("watchdog");
 

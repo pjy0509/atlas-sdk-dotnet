@@ -150,7 +150,19 @@ internal static class CrashChecks
         Demangle(ref type, ref method);
         Program.Require(type == "Shop.Cart" && method == "Total.Sum", "demangle: local function");
 
-        Console.WriteLine("report: the cause chain, the frames' PDB keys and the async names hold");
+        // What the exception carries beside its message, and every failure of an aggregate.
+        var io = new System.IO.IOException("disk gone", unchecked((int) 0x80070020));
+        io.Data["path"] = "C:\\cart.json";
+        var detail = (Dictionary<string, object>) ((Dictionary<string, object>) Payload(io, CrashReport("MechanismRecorded"), true, false)["mechanism"])["data"];
+        Program.Require((string) detail["hresult"] == "0x80070020", "report: the HRESULT rides the mechanism");
+        Program.Require((string) ((Dictionary<string, object>) detail["data"])["path"] == "C:\\cart.json", "report: Exception.Data rides too");
+
+        var aggregate = new AggregateException(new InvalidOperationException("first"), new TimeoutException("second"));
+        var failures = (List<object>) Payload(aggregate, CrashReport("MechanismUncaught"), false, false)["exceptions"];
+        Program.Require(failures.Count == 3 && (string) ((Dictionary<string, object>) failures[2])["type"] == "System.TimeoutException",
+            "report: every inner exception of an aggregate is listed, got " + failures.Count);
+
+        Console.WriteLine("report: the cause chain, the frames' PDB keys, the async names, the HRESULT and the aggregate's inners hold");
     }
 
     internal static void CheckScope()

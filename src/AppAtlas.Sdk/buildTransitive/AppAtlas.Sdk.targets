@@ -1,0 +1,39 @@
+<Project>
+  <!-- The start nobody has to write. With <AtlasSdkKey> in the project file the
+       key is stamped into the entry assembly as metadata, where Atlas.Start()
+       finds it; on .NET Core the runtime is also told to call the SDK's startup
+       hook before Main, so the app is covered from its first line with no code.
+       <AtlasAutoStart>false</AtlasAutoStart> keeps the key but leaves the start
+       to code; <AtlasBaseUrl> overrides the server. -->
+  <PropertyGroup>
+    <AtlasAutoStart Condition="'$(AtlasAutoStart)' == ''">true</AtlasAutoStart>
+  </PropertyGroup>
+
+  <Target Name="AtlasWriteSdkKey" BeforeTargets="CoreCompile"
+          Condition="'$(AtlasSdkKey)' != '' and '$(OutputType)' != 'Library'">
+    <PropertyGroup>
+      <_AtlasKeyFile>$(IntermediateOutputPath)AppAtlas.SdkKey$(DefaultLanguageSourceExtension)</_AtlasKeyFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_AtlasAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>AppAtlas.SdkKey</_Parameter1>
+        <_Parameter2>$(AtlasSdkKey)</_Parameter2>
+      </_AtlasAttribute>
+      <_AtlasAttribute Include="System.Reflection.AssemblyMetadataAttribute" Condition="'$(AtlasBaseUrl)' != ''">
+        <_Parameter1>AppAtlas.BaseUrl</_Parameter1>
+        <_Parameter2>$(AtlasBaseUrl)</_Parameter2>
+      </_AtlasAttribute>
+    </ItemGroup>
+
+    <!-- The core MSBuild task, so SDK-style and legacy projects alike get the attribute. -->
+    <WriteCodeFragment Language="$(Language)" OutputFile="$(_AtlasKeyFile)" AssemblyAttributes="@(_AtlasAttribute)">
+      <Output TaskParameter="OutputFile" ItemName="Compile" />
+      <Output TaskParameter="OutputFile" ItemName="FileWrites" />
+    </WriteCodeFragment>
+  </Target>
+
+  <ItemGroup Condition="'$(AtlasSdkKey)' != '' and '$(AtlasAutoStart)' == 'true' and '$(TargetFrameworkIdentifier)' == '.NETCoreApp' and '$(OutputType)' != 'Library'">
+    <RuntimeHostConfigurationOption Include="STARTUP_HOOKS" Value="AppAtlas.Sdk" />
+  </ItemGroup>
+</Project>

@@ -21,7 +21,9 @@ namespace AppAtlas.Sdk.Crash
             Put(facts, "memoryWorkingSetBytes", () => Process.GetCurrentProcess().WorkingSet64);
             Put(facts, "memoryPrivateBytes", () => Process.GetCurrentProcess().PrivateMemorySize64);
             Put(facts, "memoryManagedBytes", () => GC.GetTotalMemory(false));
-            Put(facts, "memoryTotalBytes", () => TotalPhysicalMemory());
+            Put(facts, "memoryTotalBytes", () => WindowsMemory.Total() ?? TotalPhysicalMemory());
+            Put(facts, "memoryFreeBytes", () => WindowsMemory.Available());
+            Put(facts, "osBuild", () => WindowsVersion.Build());
             Put(facts, "diskFreeBytes", () => new DriveInfo(Path.GetPathRoot(Path.GetFullPath(dataDir))).AvailableFreeSpace);
             Put(facts, "processUptimeMs", () => (long) (DateTime.UtcNow - Process.GetCurrentProcess().StartTime.ToUniversalTime()).TotalMilliseconds);
             Put(facts, "bootTime", () => AtlasCore.Iso(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - Environment.TickCount));
@@ -44,6 +46,81 @@ namespace AppAtlas.Sdk.Crash
             var total = info?.GetType().GetProperty("TotalAvailableMemoryBytes")?.GetValue(info);
 
             return total is long bytes && bytes > 0 ? (object) bytes : null;
+        }
+
+        /// <summary>kernel32's GlobalMemoryStatusEx: the machine's memory and
+        /// what is free, with no runtime in between. Null off Windows.</summary>
+        internal static class WindowsMemory
+        {
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MemoryStatus
+            {
+                public uint Length;
+                public uint MemoryLoad;
+                public ulong TotalPhys;
+                public ulong AvailPhys;
+                public ulong TotalPageFile;
+                public ulong AvailPageFile;
+                public ulong TotalVirtual;
+                public ulong AvailVirtual;
+                public ulong AvailExtendedVirtual;
+            }
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool GlobalMemoryStatusEx(ref MemoryStatus status);
+
+            private static MemoryStatus? Read()
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
+
+                var status = new MemoryStatus {Length = (uint) Marshal.SizeOf(typeof(MemoryStatus))};
+
+                return GlobalMemoryStatusEx(ref status) ? status : (MemoryStatus?) null;
+            }
+
+            internal static object Total()
+            {
+                var status = Read();
+
+                return status.HasValue ? (object) (long) status.Value.TotalPhys : null;
+            }
+
+            internal static object Available()
+            {
+                var status = Read();
+
+                return status.HasValue ? (object) (long) status.Value.AvailPhys : null;
+            }
+        }
+
+        /// <summary>The true Windows version, from ntdll's RtlGetVersion: what
+        /// Environment.OSVersion lies about on .NET Framework without a
+        /// manifest. "10.0.22631" shape. Null off Windows.</summary>
+        internal static class WindowsVersion
+        {
+            [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+            private struct VersionInfo
+            {
+                public uint Size;
+                public uint Major;
+                public uint Minor;
+                public uint Build;
+                public uint Platform;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+                public string ServicePack;
+            }
+
+            [DllImport("ntdll.dll")]
+            private static extern int RtlGetVersion(ref VersionInfo info);
+
+            internal static string Build()
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
+
+                var info = new VersionInfo {Size = (uint) Marshal.SizeOf(typeof(VersionInfo))};
+
+                return RtlGetVersion(ref info) == 0 ? info.Major + "." + info.Minor + "." + info.Build : null;
+            }
         }
 
         private static void Put(Dictionary<string, object> facts, string name, Func<object> read)

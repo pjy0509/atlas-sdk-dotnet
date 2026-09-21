@@ -48,6 +48,10 @@ namespace AppAtlas.Sdk.Crash
             var exceptions = Exceptions(error);
             payload["exceptions"] = exceptions;
 
+            var detail = Detail(error);
+
+            if (detail != null) ((Dictionary<string, object>) payload["mechanism"])["data"] = detail;
+
             if (withThread)
             {
                 var thread = Thread.CurrentThread;
@@ -106,7 +110,8 @@ namespace AppAtlas.Sdk.Crash
 
         /// <summary>Outermost first, down InnerException; the last entry is
         /// the root cause. An AggregateException's first inner is its
-        /// InnerException already.</summary>
+        /// InnerException already; the others follow it, so a Task.WhenAll
+        /// that failed twice shows both.</summary>
         private static List<object> Exceptions(Exception error)
         {
             var chain = new List<object>();
@@ -114,15 +119,89 @@ namespace AppAtlas.Sdk.Crash
 
             for (var link = error; link != null && chain.Count < MaxCauses && seen.Add(link); link = link.InnerException)
             {
-                chain.Add(new Dictionary<string, object>
+                chain.Add(Raised(link));
+            }
+
+            var aggregate = error as AggregateException;
+
+            if (aggregate != null)
+            {
+                foreach (var inner in aggregate.InnerExceptions)
                 {
-                    ["type"] = link.GetType().FullName ?? "Exception",
-                    ["message"] = Message(link),
-                    ["frames"] = Frames(link),
-                });
+                    for (var link = inner; link != null && chain.Count < MaxCauses && seen.Add(link); link = link.InnerException)
+                    {
+                        chain.Add(Raised(link));
+                    }
+                }
             }
 
             return chain;
+        }
+
+        private static Dictionary<string, object> Raised(Exception link)
+        {
+            return new Dictionary<string, object>
+            {
+                ["type"] = link.GetType().FullName ?? "Exception",
+                ["message"] = Message(link),
+                ["frames"] = Frames(link),
+            };
+        }
+
+        /// <summary>What the exception carries beside its message: the HRESULT
+        /// (the Win32 or COM error behind an IOException, say) and the
+        /// string entries of Exception.Data. Null when there is nothing.</summary>
+        private static Dictionary<string, object> Detail(Exception error)
+        {
+            var detail = new Dictionary<string, object>();
+
+            try
+            {
+                var hresult = error.HResult;
+
+                // Every type carries a default HRESULT that says nothing the
+                // type does not. The ones that carry a real code are the
+                // interop and I/O families: a Win32 or COM error behind an
+                // IOException, a COMException, a Win32Exception.
+                var carries = error is System.IO.IOException || error is System.Runtime.InteropServices.ExternalException;
+
+                if (carries && hresult != 0 && (hresult & unchecked((int) 0xFFFF0000)) != unchecked((int) 0x80130000))
+                {
+                    detail["hresult"] = "0x" + hresult.ToString("x8", CultureInfo.InvariantCulture);
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            try
+            {
+                var data = error.Data;
+
+                if (data != null && data.Count > 0)
+                {
+                    var entries = new Dictionary<string, object>();
+
+                    foreach (System.Collections.DictionaryEntry entry in data)
+                    {
+                        if (entries.Count >= 32) break;
+
+                        var key = entry.Key as string;
+
+                        if (key == null) continue;
+
+                        var value = entry.Value?.ToString() ?? "";
+                        entries[key.Length > 64 ? key.Substring(0, 64) : key] = value.Length > 1024 ? value.Substring(0, 1024) : value;
+                    }
+
+                    if (entries.Count > 0) detail["data"] = entries;
+                }
+            }
+            catch (Exception)
+            {
+            }
+
+            return detail.Count > 0 ? detail : null;
         }
 
         private static string Message(Exception link)

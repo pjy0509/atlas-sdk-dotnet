@@ -15,7 +15,7 @@ namespace AppAtlas.Sdk
     /// </summary>
     public sealed class AtlasCore
     {
-        internal const string Version = "0.3.0";
+        internal const string Version = "0.4.0";
 
         private readonly string _sdkName;
         private readonly Dictionary<string, object> _context;

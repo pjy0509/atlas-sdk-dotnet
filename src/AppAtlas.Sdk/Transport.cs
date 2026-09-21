@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 
 namespace AppAtlas.Sdk
@@ -39,17 +41,49 @@ namespace AppAtlas.Sdk
             return nowMs < _retryNotBeforeMs;
         }
 
+        /// <summary>The envelope gzipped, or itself when compression fails or
+        /// does not pay. A crash with a hundred threads is a tenth of its size
+        /// on the wire, and the server inflates before it judges the cap.</summary>
+        internal static byte[] Gzip(byte[] envelope)
+        {
+            if (envelope.Length < 512) return envelope;
+
+            try
+            {
+                using (var packed = new MemoryStream(envelope.Length / 4 + 64))
+                {
+                    using (var stream = new GZipStream(packed, CompressionMode.Compress, true))
+                    {
+                        stream.Write(envelope, 0, envelope.Length);
+                    }
+
+                    return packed.Length < envelope.Length ? packed.ToArray() : envelope;
+                }
+            }
+            catch (Exception)
+            {
+                return envelope;
+            }
+        }
+
         internal TransportVerdict Send(byte[] envelope, long nowMs)
         {
             if (Limited(nowMs)) return TransportVerdict.RetryLater;
 
             try
             {
+                var wire = Gzip(envelope);
+
                 using (var request = new HttpRequestMessage(HttpMethod.Post, _endpoint))
                 {
                     request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + _sdkKey);
-                    request.Content = new ByteArrayContent(envelope);
+                    request.Content = new ByteArrayContent(wire);
                     request.Content.Headers.TryAddWithoutValidation("Content-Type", "application/x-atlas-envelope");
+
+                    if (!ReferenceEquals(wire, envelope))
+                    {
+                        request.Content.Headers.TryAddWithoutValidation("Content-Encoding", "gzip");
+                    }
 
                     // Sync-over-async is safe here by construction: this only
                     // runs on the dedicated worker thread, never a UI context.

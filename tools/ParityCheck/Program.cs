@@ -150,6 +150,34 @@ internal static class Program
         Require((bool) limited.Invoke(transport, new object[] {29_000L}), "the Retry-After deadline must hold");
         Require(!(bool) limited.Invoke(transport, new object[] {31_000L}), "the deadline must expire");
         Require(Verdict(40_000) == "RetryLater", "5xx must retry");
+
+        // A big envelope leaves gzipped and reads back to the same bytes; a small one as it is.
+        var gzip = transport.GetType().GetMethod("Gzip", BindingFlags.NonPublic | BindingFlags.Static);
+        var big = new byte[8192];
+        Array.Fill(big, (byte) 'a');
+        var packed = (byte[]) gzip.Invoke(null, new object[] {big});
+        Require(packed.Length < 512, "gzip must shrink a repetitive envelope");
+
+        using (var unpack = new System.IO.Compression.GZipStream(new System.IO.MemoryStream(packed), System.IO.Compression.CompressionMode.Decompress))
+        using (var back = new System.IO.MemoryStream())
+        {
+            unpack.CopyTo(back);
+            Require(back.ToArray().AsSpan().SequenceEqual(big), "gzip must round-trip");
+        }
+
+        Require(ReferenceEquals(gzip.Invoke(null, new object[] {body}), body), "a small envelope goes as it is");
+
+        // The key the project file stamped into this assembly is what a code-free start reads.
+        var configured = typeof(Atlas).GetMethod("Configured", BindingFlags.NonPublic | BindingFlags.Static);
+        Require((string) configured.Invoke(null, new object[] {"AppAtlas.SdkKey", "ATLAS_SDK_KEY"}) == "sdk_stamped",
+            "the stamped key must be read from the entry assembly");
+        Require((string) configured.Invoke(null, new object[] {"AppAtlas.BaseUrl", "ATLAS_BASE_URL"}) == "http://127.0.0.1:9",
+            "the stamped base URL must be read too");
+        Environment.SetEnvironmentVariable("ATLAS_PARITY_PROBE", "from-env");
+        Require((string) configured.Invoke(null, new object[] {"AppAtlas.Nothing", "ATLAS_PARITY_PROBE"}) == "from-env",
+            "the environment stands in when the assembly says nothing");
+        Require(typeof(Atlas).Assembly.GetType("StartupHook")?.GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static) != null,
+            "the runtime's startup hook must exist in the shape it looks for");
     }
 
     private static void CheckLinkUrl()

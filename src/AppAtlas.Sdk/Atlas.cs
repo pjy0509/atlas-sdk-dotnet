@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 
 namespace AppAtlas.Sdk
 {
@@ -8,16 +9,37 @@ namespace AppAtlas.Sdk
     ///
     ///     Atlas.Start("sdk_…");
     ///
-    /// Modules (crash, links) attach to the core this creates; none of them
-    /// touch the network or the disk on their own.
+    /// Or none: with `&lt;AtlasSdkKey&gt;` in the project file the package
+    /// stamps the key into the entry assembly, `Atlas.Start()` reads it
+    /// there, and on .NET Core the runtime's startup hook calls Start before
+    /// Main. Modules (crash, links) attach to the core this creates; none of
+    /// them touch the network or the disk on their own.
     /// </summary>
     public static class Atlas
     {
         private const string DefaultBaseUrl = "https://appatlas.dev";
+        // The assembly metadata the package's targets write from the project
+        // file, and the environment variables a launcher may set instead.
+        internal const string KeyMetadata = "AppAtlas.SdkKey";
+        internal const string BaseUrlMetadata = "AppAtlas.BaseUrl";
+        internal const string KeyVariable = "ATLAS_SDK_KEY";
+        internal const string BaseUrlVariable = "ATLAS_BASE_URL";
 
         private static readonly object Lock = new object();
         private static AtlasCore _core;
         private static string _dataDir;
+
+        /// <summary>The start with no key in code: the key comes from the entry
+        /// assembly's metadata (the project file's `AtlasSdkKey`) or the
+        /// `ATLAS_SDK_KEY` environment variable. Quiet when neither names one.</summary>
+        public static void Start()
+        {
+            var key = Configured(KeyMetadata, KeyVariable);
+
+            if (string.IsNullOrEmpty(key)) return;
+
+            Start(key, Configured(BaseUrlMetadata, BaseUrlVariable) ?? DefaultBaseUrl, null);
+        }
 
         public static void Start(string sdkKey)
         {
@@ -54,6 +76,48 @@ namespace AppAtlas.Sdk
             // Crash first: its hooks should be in place before anything else runs.
             Crash.AtlasCrash.Boot();
             Links.AtlasLinks.Boot();
+        }
+
+        /// <summary>A value the build stamped into the entry assembly, else the
+        /// environment's. Read through the attribute data, never by
+        /// instantiating attributes, so a trimmed app still answers.</summary>
+        internal static string Configured(string metadataKey, string variable)
+        {
+            try
+            {
+                var entry = Assembly.GetEntryAssembly();
+
+                if (entry != null)
+                {
+                    foreach (var attribute in entry.GetCustomAttributesData())
+                    {
+                        if (attribute.AttributeType != typeof(AssemblyMetadataAttribute)
+                            || attribute.ConstructorArguments.Count != 2) continue;
+
+                        if (attribute.ConstructorArguments[0].Value as string == metadataKey)
+                        {
+                            var value = attribute.ConstructorArguments[1].Value as string;
+
+                            if (!string.IsNullOrEmpty(value)) return value;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // A host with no entry assembly, or metadata it will not show.
+            }
+
+            try
+            {
+                var fromEnvironment = Environment.GetEnvironmentVariable(variable);
+
+                return string.IsNullOrEmpty(fromEnvironment) ? null : fromEnvironment;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         /// <summary>The running core, for modules; null before Start.</summary>

@@ -21,7 +21,10 @@ namespace AppAtlas.Sdk
             var device = new Dictionary<string, object>
             {
                 ["os"] = "windows",
-                ["osVersion"] = Probe(() => Environment.OSVersion.Version.ToString()) ?? "unknown",
+                // ntdll's own word where there is one: Environment.OSVersion
+                // answers 6.2 on .NET Framework without a manifest.
+                ["osVersion"] = Probe(() => Crash.DeviceFacts.WindowsVersion.Build())
+                                ?? Probe(() => Environment.OSVersion.Version.ToString()) ?? "unknown",
                 // No `model`: reading it needs WMI, which netstandard2.0 does
                 // not carry and UWP would refuse. Absent beats invented.
                 ["arch"] = Probe(() => RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant()) ?? "unknown",

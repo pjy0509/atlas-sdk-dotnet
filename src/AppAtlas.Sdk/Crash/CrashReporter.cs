@@ -117,6 +117,65 @@ namespace AppAtlas.Sdk.Crash
             }
         }
 
+        /// <summary>A native fault the process's top-level filter saw, on the
+        /// faulting thread, with the process about to end: written now, on
+        /// this thread, then flushed for as long as a dying process can wait.
+        /// Not a second report when a managed crash was written first.</summary>
+        internal void NativeCrash(string type, string message, List<object> frames, Dictionary<string, object> native)
+        {
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            try
+            {
+                lock (_lock)
+                {
+                    if (!Enabled || _crashed) return;
+
+                    _crashed = true;
+                }
+
+                var report = CrashReport.FromExit(AtlasCore.NewEventId(), AtlasCore.Iso(now), SessionId,
+                    NativeCrashFilter.Mechanism, type, message, frames);
+                ((Dictionary<string, object>) report["mechanism"])["native"] = native;
+                report["threads"] = new List<object>
+                {
+                    new Dictionary<string, object>
+                    {
+                        ["name"] = string.IsNullOrEmpty(Thread.CurrentThread.Name)
+                            ? "thread-" + Thread.CurrentThread.ManagedThreadId
+                            : Thread.CurrentThread.Name,
+                        ["crashed"] = true,
+                        ["frames"] = frames,
+                    },
+                };
+
+                try
+                {
+                    _scope.WriteTo(report);
+                    report["context"] = Context(now);
+                }
+                catch (Exception)
+                {
+                    // The fault alone still names the module and the offset.
+                }
+
+                _core.Batch()
+                    .Add("crash", report)
+                    .Add("session", SessionItems.Ended(AtlasCore.NewEventId(), SessionId, "crashed", StartedAtIso,
+                        _errors, now - StartedAtMs))
+                    .PersistNow();
+
+                _run.Set("crashWritten", true);
+                _run.Set("crashedAt", now);
+                _run.Persist();
+                _core.FlushWithin(TerminatingFlushMs);
+            }
+            catch (Exception)
+            {
+                // A reporter that fails must still let the app die its own death.
+            }
+        }
+
         /// <summary>A handled error, or a framework hook's exception before
         /// the app decided: reported, grouped apart from crashes, never fatal.</summary>
         internal void Error(Exception error, string mechanism)

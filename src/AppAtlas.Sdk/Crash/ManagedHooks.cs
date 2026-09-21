@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Security;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AppAtlas.Sdk.Crash
@@ -19,8 +20,52 @@ namespace AppAtlas.Sdk.Crash
     /// </summary>
     internal sealed class ManagedHooks
     {
+        // How long a framework hook keeps being retried after its assembly
+        // loads: WinUI's Application.Current is null until the app constructs it.
+        internal const int RetryForMs = 60_000;
+        private const int RetryEveryMs = 1000;
+
         private readonly CrashReporter _reporter;
         private readonly List<string> _installed = new List<string>();
+        private readonly object _lock = new object();
+        private readonly Thread _main = Thread.CurrentThread;
+        private Timer _retry;
+        private long _retryUntil;
+
+        /// <summary>One framework hook: where it lives, what it is called, how its exceptions are filed.</summary>
+        private sealed class Hook
+        {
+            internal string Name;
+            internal string Assembly;
+            internal string Type;
+            internal string Member;
+            internal string Event;
+            internal string Mechanism;
+            /// <summary>The instance to attach to, when it is not a static property: the main thread's Dispatcher.</summary>
+            internal Func<Type, Thread, object> Target;
+        }
+
+        // The frameworks a desktop app dispatches on, each found by name so
+        // the assembly stays netstandard2.0 with no framework references.
+        private static readonly Hook[] Hooks =
+        {
+            // WPF: the main thread's Dispatcher, which Application reuses.
+            // Asked for by thread, so it is never made on the wrong one; null
+            // until the main thread has touched WPF, then retried.
+            new Hook {Name = "wpf", Assembly = "WindowsBase", Type = "System.Windows.Threading.Dispatcher",
+                Event = "UnhandledException", Mechanism = CrashReport.MechanismDispatcher,
+                Target = (type, main) => type.GetMethod("FromThread", BindingFlags.Public | BindingFlags.Static)
+                    ?.Invoke(null, new object[] {main})},
+            // WinForms: a static event.
+            new Hook {Name = "winForms", Assembly = "System.Windows.Forms", Type = "System.Windows.Forms.Application",
+                Member = null, Event = "ThreadException", Mechanism = CrashReport.MechanismThreadException},
+            // WinUI 3: XAML dispatch only; the AppDomain backstop covers the rest.
+            new Hook {Name = "winUI", Assembly = "Microsoft.WinUI", Type = "Microsoft.UI.Xaml.Application",
+                Member = "Current", Event = "UnhandledException", Mechanism = CrashReport.MechanismDispatcher},
+            // Avalonia 11: the UI thread's Dispatcher.
+            new Hook {Name = "avalonia", Assembly = "Avalonia.Base", Type = "Avalonia.Threading.Dispatcher",
+                Member = "UIThread", Event = "UnhandledException", Mechanism = CrashReport.MechanismDispatcher},
+        };
 
         internal ManagedHooks(CrashReporter reporter)
         {
@@ -29,7 +74,7 @@ namespace AppAtlas.Sdk.Crash
 
         internal IReadOnlyList<string> Installed
         {
-            get { return _installed; }
+            get { lock (_lock) return new List<string>(_installed); }
         }
 
         internal void Install()
@@ -53,27 +98,92 @@ namespace AppAtlas.Sdk.Crash
             {
             }
 
-            // WPF: the calling thread's Dispatcher always exists, unlike
-            // Application.Current at start time.
-            if (HookEvent("WindowsBase", "System.Windows.Threading.Dispatcher", "CurrentDispatcher", "UnhandledException",
-                CrashReport.MechanismDispatcher))
+            HookFrameworks();
+
+            // Started before the app (the startup hook), no framework is
+            // loaded yet: each one is hooked as its assembly arrives, and
+            // WinUI's Application.Current is retried until the app makes it.
+            try
             {
-                _installed.Add("wpf");
+                AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        /// <summary>The frameworks not yet hooked, tried again; true when every one is done.</summary>
+        private bool HookFrameworks()
+        {
+            var pending = false;
+
+            foreach (var hook in Hooks)
+            {
+                lock (_lock)
+                {
+                    if (_installed.Contains(hook.Name)) continue;
+                }
+
+                var type = FindType(hook.Assembly, hook.Type);
+
+                if (type == null) continue;
+
+                if (HookEvent(hook, type))
+                {
+                    lock (_lock) _installed.Add(hook.Name);
+                }
+                else
+                {
+                    pending = true;
+                }
             }
 
-            // WinForms: a static event; Application.ThreadException.
-            if (HookEvent("System.Windows.Forms", "System.Windows.Forms.Application", null, "ThreadException",
-                CrashReport.MechanismThreadException))
-            {
-                _installed.Add("winForms");
-            }
+            return !pending;
+        }
 
-            // WinUI 3: Application.Current.UnhandledException (XAML dispatch
-            // only; the AppDomain backstop covers the rest).
-            if (HookEvent("Microsoft.WinUI", "Microsoft.UI.Xaml.Application", "Current", "UnhandledException",
-                CrashReport.MechanismDispatcher))
+        private void OnAssemblyLoad(object sender, AssemblyLoadEventArgs args)
+        {
+            try
             {
-                _installed.Add("winUI");
+                var name = args.LoadedAssembly.GetName().Name;
+                var interesting = false;
+
+                foreach (var hook in Hooks)
+                {
+                    if (string.Equals(name, hook.Assembly, StringComparison.OrdinalIgnoreCase)) interesting = true;
+                }
+
+                if (!interesting) return;
+
+                if (!HookFrameworks()) RetrySoon();
+            }
+            catch (Exception)
+            {
+                // A hook that cannot be placed now is tried again later.
+            }
+        }
+
+        private void RetrySoon()
+        {
+            lock (_lock)
+            {
+                _retryUntil = Environment.TickCount + RetryForMs;
+
+                if (_retry != null) return;
+
+                _retry = new Timer(_ =>
+                {
+                    var done = HookFrameworks();
+
+                    if (done || Environment.TickCount - _retryUntil > 0)
+                    {
+                        lock (_lock)
+                        {
+                            _retry?.Dispose();
+                            _retry = null;
+                        }
+                    }
+                }, null, RetryEveryMs, RetryEveryMs);
             }
         }
 
@@ -104,30 +214,33 @@ namespace AppAtlas.Sdk.Crash
             _reporter.Error(error, CrashReport.MechanismUnobserved);
         }
 
-        /// <summary>Attaches to `eventName` on the object `memberName` yields
-        /// from `typeName` (a static property, or null for a static event),
-        /// when the assembly is loaded at all. The handler's delegate type is
-        /// whatever the event declares; it is built with an expression tree so
-        /// no framework type is named here.</summary>
-        private bool HookEvent(string assemblyName, string typeName, string memberName, string eventName, string mechanism)
+        /// <summary>Attaches to the hook's event on the object its member or
+        /// target yields (a static property, a resolver, or null for a static
+        /// event). The handler's delegate type is whatever the event declares;
+        /// it is built with an expression tree so no framework type is named
+        /// here. False when the target does not exist yet.</summary>
+        private bool HookEvent(Hook hook, Type type)
         {
             try
             {
-                var type = FindType(assemblyName, typeName);
-
-                if (type == null) return false;
-
                 object target = null;
 
-                if (memberName != null)
+                if (hook.Target != null)
                 {
-                    var property = type.GetProperty(memberName, BindingFlags.Public | BindingFlags.Static);
+                    target = hook.Target(type, _main);
+
+                    if (target == null) return false;
+                }
+                else if (hook.Member != null)
+                {
+                    var property = type.GetProperty(hook.Member, BindingFlags.Public | BindingFlags.Static);
                     target = property?.GetValue(null);
 
                     if (target == null) return false;
                 }
 
-                var evt = type.GetEvent(eventName, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance);
+                var evt = (target?.GetType() ?? type).GetEvent(hook.Event,
+                    BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance);
 
                 if (evt == null) return false;
 
@@ -141,7 +254,7 @@ namespace AppAtlas.Sdk.Crash
                 var args = Expression.Parameter(parameters[1].ParameterType, "args");
                 var bridge = typeof(ManagedHooks).GetMethod(nameof(OnFrameworkException), BindingFlags.NonPublic | BindingFlags.Instance);
                 var body = Expression.Call(Expression.Constant(this), bridge, Expression.Convert(args, typeof(object)),
-                    Expression.Constant(mechanism));
+                    Expression.Constant(hook.Mechanism));
                 var handler = Expression.Lambda(evt.EventHandlerType, body, sender, args).Compile();
 
                 evt.AddEventHandler(target, handler);

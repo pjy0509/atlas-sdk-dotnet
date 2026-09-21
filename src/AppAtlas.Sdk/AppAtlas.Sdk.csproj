@@ -11,7 +11,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>AppAtlas.Sdk</RootNamespace>
     <AssemblyName>AppAtlas.Sdk</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
@@ -33,6 +33,8 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <!-- The targets every consumer imports: the key from the project file, the startup hook. -->
+    <None Include="buildTransitive/AppAtlas.Sdk.targets" Pack="true" PackagePath="buildTransitive/;build/" />
   </ItemGroup>
 
 </Project>

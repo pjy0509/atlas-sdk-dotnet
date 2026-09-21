@@ -19,7 +19,7 @@ dotnet add package AppAtlas.Sdk
 #### .csproj
 
 ```xml
-<PackageReference Include="AppAtlas.Sdk" Version="0.3.0" />
+<PackageReference Include="AppAtlas.Sdk" Version="0.4.0" />
 ```
 
 #### Package Manager Console
@@ -60,6 +60,22 @@ Protected Overrides Sub OnStartup(e As StartupEventArgs)
 End Sub
 ```
 <!-- tabs:end -->
+
+Or no code at all: name the key in the project file. The package stamps it
+into the executable, where `Atlas.Start()` (no argument) reads it, and on .NET
+Core the runtime calls the SDK's startup hook before your `Main`, so the app is
+covered from its first line. A WPF, WinForms, WinUI or Avalonia hook attaches
+as its framework loads; an app that also calls `Atlas.Start` loses nothing, a
+second start is a no-op. `AtlasAutoStart` false keeps the key but leaves the
+start to code; `AtlasBaseUrl` overrides the server; `ATLAS_SDK_KEY` in the
+environment stands in for a launcher that sets it.
+
+```xml title="App.csproj"
+<!-- App.csproj: the key, and nothing else. -->
+<PropertyGroup>
+  <AtlasSdkKey>sdk_…</AtlasSdkKey>
+</PropertyGroup>
+```
 
 ### Modules
 
@@ -249,9 +265,10 @@ What is caught, with no call beyond `Atlas.Start`:
 |---|---|
 | An unhandled exception on any thread, async paths included. | `AppDomain.UnhandledException`, the backstop every host has; written to disk at that instant, since the process ends when the handler returns. |
 | An exception a task nobody awaited. | `TaskScheduler.UnobservedTaskException`, reported as a handled error. |
-| An exception on the UI thread of WPF, WinForms or WinUI 3 | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`, attached by name when that framework is loaded, reported as an error before the app decides; the backstop still writes the crash if nothing handles it. |
-| A native death: an access violation in interop, a stack overflow, `FailFast`, heap corruption. | Windows Error Reporting's LocalDumps, registered for this executable under the user's own registry hive at start; the dump it leaves is read at the next start for the exception code, the faulting address and its module, then deleted. |
-| A UI-thread hang. | A watchdog: five seconds without an answer through the UI thread's `SynchronizationContext`, once per freeze; only where such a thread exists. |
+| An exception on the UI thread of WPF, WinForms, WinUI 3 or Avalonia. | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`, `Dispatcher.UIThread.UnhandledException`, attached by name as that framework loads, reported as an error before the app decides; the backstop still writes the crash if nothing handles it. |
+| A native fault: an access violation in interop, heap corruption, an illegal instruction. | The process's top-level exception filter, taken from managed code and chained ahead of the runtime's: written at the instant, on the faulting thread, with that thread's stack as the OS unwinder walks it (module, offset and debug id per frame, managed frames included). |
+| A stack overflow, a `FailFast`: the deaths that bypass every filter. | Windows Error Reporting's LocalDumps, registered for this executable under the user's own registry hive at start where Windows honours it; the dump it leaves is read at the next start for the exception code, the faulting address and its module, then deleted. |
+| A UI-thread hang. | A watchdog: five seconds without an answer through the UI thread's `SynchronizationContext`, or the WPF Dispatcher or WinForms form found once the app has made one, once per freeze; only where such a thread exists, and never after the machine slept. |
 | A death nothing explains: a kill, a stack overflow no dump caught, a power cut. | The run's own record, kept per process id: no crash, no dump, no exit event ends the session as abnormal, and invents no issue. |
 
 A crash is written to disk on the dying thread together with the end of its

@@ -48,8 +48,8 @@ namespace AppAtlas.Sdk.Crash
         }
 
         /// <summary>Every dump written since `sinceMs`, oldest first, read and
-        /// then deleted. A dump of a managed exception (the CLR's own code)
-        /// is skipped when the run already wrote that crash itself.</summary>
+        /// then deleted. Skipped whole when the run already wrote its crash
+        /// itself: a dump then only repeats it.</summary>
         internal static List<Dictionary<string, object>> Take(string dumpDirectory, long sinceMs, bool managedCrashWritten)
         {
             var found = new List<Dictionary<string, object>>();
@@ -86,7 +86,9 @@ namespace AppAtlas.Sdk.Crash
 
                 if (read == null) continue;
 
-                if (managedCrashWritten && (string) read["type"] == "CLR_EXCEPTION") continue;
+                // The run wrote this death itself (a managed crash, or the
+                // filter's native one): the dump is the same death again.
+                if (managedCrashWritten) continue;
 
                 read["writtenAt"] = writtenMs;
                 found.Add(read);

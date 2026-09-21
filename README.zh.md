@@ -19,7 +19,7 @@ dotnet add package AppAtlas.Sdk
 #### .csproj
 
 ```xml
-<PackageReference Include="AppAtlas.Sdk" Version="0.3.0" />
+<PackageReference Include="AppAtlas.Sdk" Version="0.4.0" />
 ```
 
 #### Package Manager Console
@@ -60,6 +60,19 @@ Protected Overrides Sub OnStartup(e As StartupEventArgs)
 End Sub
 ```
 <!-- tabs:end -->
+
+也可以不写代码：把密钥写进项目文件。包会把它盖进可执行文件，`Atlas.Start()`
+（无参数）从那里读取；在 .NET Core 上运行时会在你的 `Main` 之前调用 SDK 的 startup hook，
+应用从第一行起就被覆盖。WPF、WinForms、WinUI、Avalonia 的钩子在各自框架加载时挂接；
+同时调用 `Atlas.Start` 也不会有损失，第二次启动是空操作。`AtlasAutoStart` 为 false 时保留
+密钥但把启动交给代码；`AtlasBaseUrl` 覆盖服务器；环境变量 `ATLAS_SDK_KEY` 可由启动器代为设置。
+
+```xml title="App.csproj"
+<!-- App.csproj：只需密钥。 -->
+<PropertyGroup>
+  <AtlasSdkKey>sdk_…</AtlasSdkKey>
+</PropertyGroup>
+```
 
 ### 模块
 
@@ -241,9 +254,10 @@ End Sub
 |---|---|
 | 任意线程的未处理异常，含 async 路径。 | 每个宿主都有的兜底 `AppDomain.UnhandledException`；处理器返回时进程即结束，因此当场写入磁盘。 |
 | 无人 await 的 Task 的异常。 | `TaskScheduler.UnobservedTaskException`，作为已处理错误上报。 |
-| WPF、WinForms、WinUI 3 UI 线程上的异常。 | `Dispatcher.UnhandledException`、`Application.ThreadException`、`Application.UnhandledException`；该框架已加载时按名称挂接，在应用决定之前作为错误上报；若无人处理，兜底仍会写下崩溃。 |
-| 原生死亡：互操作中的访问违规、栈溢出、`FailFast`、堆损坏。 | Windows Error Reporting 的 LocalDumps，启动时在用户自己的注册表配置单元下为本可执行文件注册；留下的转储在下次启动时读取异常代码、故障地址及其模块，随后删除。 |
-| UI 线程卡死。 | 看门狗：经 UI 线程的 `SynchronizationContext` 5 秒无应答，每次冻结一次；仅当存在这样的线程时。 |
+| WPF、WinForms、WinUI 3、Avalonia UI 线程上的异常。 | `Dispatcher.UnhandledException`、`Application.ThreadException`、`Application.UnhandledException`、`Dispatcher.UIThread.UnhandledException`；在该框架加载时按名称挂接，在应用决定之前作为错误上报；若无人处理，兜底仍会写下崩溃。 |
+| 原生故障：互操作中的访问违规、堆损坏、非法指令。 | 进程的顶层异常过滤器，由托管代码接管并链接在运行时的过滤器之前：在故障线程上当场写入，附 OS 展开器走出的该线程堆栈（每帧的模块、偏移与 debug id，含托管帧）。 |
+| 栈溢出、`FailFast`：绕过一切过滤器的死亡。 | Windows Error Reporting 的 LocalDumps，启动时在用户自己的注册表配置单元下为本可执行文件注册（在 Windows 承认该键的地方）；留下的转储在下次启动时读取异常代码、故障地址及其模块，随后删除。 |
+| UI 线程卡死。 | 看门狗：经 UI 线程的 `SynchronizationContext`，或应用建好后找到的 WPF Dispatcher、WinForms 窗体，5 秒无应答即上报，每次冻结一次；仅当存在这样的线程时，且机器休眠唤醒后不计。 |
 | 无法解释的死亡：kill、转储未能捕获的栈溢出、断电。 | 按进程 id 保存的运行记录：无崩溃、无转储、无退出事件即将会话结束为 abnormal，不虚构问题。 |
 
 崩溃在垂死线程上连同其会话的结束一起先写入磁盘，crash-free 会话正是据此统计，
