@@ -61,13 +61,13 @@ End Sub
 ```
 <!-- tabs:end -->
 
-코드 없이도 됩니다. 프로젝트 파일에 키를 적으면 패키지가 실행 파일에 키를 새겨 넣고,
-`Atlas.Start()`(인자 없음)가 거기서 읽습니다. .NET Core에서는 런타임이 `Main`보다 먼저
-SDK의 startup hook을 호출하므로 앱은 첫 줄부터 수집됩니다. WPF, WinForms, WinUI,
-Avalonia 훅은 그 프레임워크가 로드될 때 붙습니다. `Atlas.Start`를 함께 호출해도 잃는 것은
-없습니다. 두 번째 시작은 아무 일도 하지 않습니다. `AtlasAutoStart`를 false로 두면 키는
-두되 시작은 코드에 맡기고, `AtlasBaseUrl`은 서버를 바꾸며, 환경 변수 `ATLAS_SDK_KEY`는
-런처가 대신 넘길 수 있습니다.
+프로젝트 파일에 키를 선언하는 방법도 있습니다. 패키지가 키를 실행 파일의 어셈블리
+메타데이터에 기록하고, 인자 없는 `Atlas.Start()`가 거기서 읽습니다. .NET Core에서는
+런타임이 `Main`보다 먼저 SDK의 startup hook을 호출하므로 앱은 첫 줄부터 수집됩니다.
+WPF, WinForms, WinUI, Avalonia 훅은 해당 프레임워크가 로드되는 시점에 연결됩니다.
+`Atlas.Start`를 함께 호출해도 무방하며, 두 번째 호출은 무시됩니다. `AtlasAutoStart`를
+false로 두면 키는 유지하되 시작은 코드에 맡기고, `AtlasBaseUrl`은 서버 주소를 바꾸며,
+환경 변수 `ATLAS_SDK_KEY`로 런처가 키를 넘길 수도 있습니다.
 
 ```xml title="App.csproj"
 <!-- App.csproj: 키 하나면 됩니다. -->
@@ -265,9 +265,9 @@ End Sub
 | 어느 스레드든 미처리 예외, async 경로 포함. | 모든 호스트에 있는 백스톱 `AppDomain.UnhandledException`. 핸들러가 돌아오면 프로세스가 끝나므로 그 순간 디스크에 씁니다. |
 | 아무도 await하지 않은 Task의 예외. | `TaskScheduler.UnobservedTaskException`. 처리된 오류로 보고합니다. |
 | WPF, WinForms, WinUI 3, Avalonia의 UI 스레드 예외. | `Dispatcher.UnhandledException`, `Application.ThreadException`, `Application.UnhandledException`, `Dispatcher.UIThread.UnhandledException`. 그 프레임워크가 로드되는 시점에 이름으로 연결되며, 앱이 처리 여부를 정하기 전이므로 오류로 보고합니다. 아무도 처리하지 않으면 백스톱이 크래시를 씁니다. |
-| 네이티브 폴트: 인터롭의 액세스 위반, 힙 손상, 잘못된 명령. | 프로세스의 최상위 예외 필터. 관리 코드에서 잡아 런타임의 필터 앞에 체인으로 두며, 폴트가 난 스레드에서 그 순간 기록합니다. OS 언와인더가 걷는 그 스레드의 스택(프레임마다 모듈, 오프셋, debug id, 관리 프레임 포함)이 함께 실립니다. |
-| 스택 오버플로, `FailFast`: 어떤 필터도 거치지 않는 죽음. | Windows Error Reporting의 LocalDumps. 시작 때 이 실행 파일에 대해 사용자 레지스트리 하이브에 등록하며(Windows가 그 키를 존중하는 곳에서), 남긴 덤프를 다음 실행 때 읽어 예외 코드, 폴트 주소, 그 모듈을 얻은 뒤 지웁니다. |
-| UI 스레드 행. | 워치독: UI 스레드의 `SynchronizationContext`, 또는 앱이 만든 뒤 찾아낸 WPF Dispatcher나 WinForms 폼으로 5초 동안 답이 없으면 freeze당 한 번. 그런 스레드가 있을 때만이며, 기기가 잠들었다 깬 직후는 세지 않습니다. |
+| 네이티브 폴트: 인터롭의 액세스 위반, 힙 손상, 잘못된 명령. | 프로세스의 최상위 예외 필터. 관리 코드에서 등록해 런타임의 필터 앞에 체인으로 두며, 폴트가 발생한 스레드에서 그 즉시 기록합니다. OS 언와인더가 걷는 해당 스레드의 스택(프레임마다 모듈, 오프셋, debug id, 관리 프레임 포함)이 함께 실립니다. |
+| 스택 오버플로, `FailFast`: 어떤 필터도 거치지 않는 종료. | Windows Error Reporting의 LocalDumps. 시작 때 이 실행 파일에 대해 사용자 레지스트리 하이브에 등록하며(Windows가 해당 키를 인정하는 환경에서), 남긴 덤프를 다음 실행 때 읽어 예외 코드, 폴트 주소, 해당 모듈을 얻은 뒤 삭제합니다. |
+| UI 스레드 행. | 워치독: UI 스레드의 `SynchronizationContext`, 또는 앱이 생성한 뒤 찾아낸 WPF Dispatcher나 WinForms 폼을 통해 5초 동안 응답이 없으면 freeze당 한 번 보고합니다. 그런 스레드가 있을 때만 동작하며, 절전에서 깨어난 직후의 틱은 세지 않습니다. |
 | 설명할 수 없는 죽음: kill, 덤프가 못 잡은 스택 오버플로, 전원 차단. | 프로세스 id별로 남기는 실행 기록. 크래시도 덤프도 종료 이벤트도 없으면 세션을 abnormal로 끝내고, 이슈는 만들지 않습니다. |
 
 크래시는 죽어 가는 스레드에서 세션 종료 상태와 함께 디스크에 먼저 기록되고,

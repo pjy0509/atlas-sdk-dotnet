@@ -61,7 +61,7 @@ End Sub
 ```
 <!-- tabs:end -->
 
-Or no code at all: name the key in the project file. The package stamps it
+The key may also be declared in the project file. The package stamps it
 into the executable, where `Atlas.Start()` (no argument) reads it, and on .NET
 Core the runtime calls the SDK's startup hook before your `Main`, so the app is
 covered from its first line. A WPF, WinForms, WinUI or Avalonia hook attaches

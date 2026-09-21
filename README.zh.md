@@ -61,7 +61,7 @@ End Sub
 ```
 <!-- tabs:end -->
 
-也可以不写代码：把密钥写进项目文件。包会把它盖进可执行文件，`Atlas.Start()`
+密钥也可以在项目文件中声明。包会把它写入可执行文件的程序集元数据，`Atlas.Start()`
 （无参数）从那里读取；在 .NET Core 上运行时会在你的 `Main` 之前调用 SDK 的 startup hook，
 应用从第一行起就被覆盖。WPF、WinForms、WinUI、Avalonia 的钩子在各自框架加载时挂接；
 同时调用 `Atlas.Start` 也不会有损失，第二次启动是空操作。`AtlasAutoStart` 为 false 时保留
