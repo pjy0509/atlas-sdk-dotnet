@@ -190,12 +190,15 @@ protected override void OnStartup(StartupEventArgs e)
 {
     base.OnStartup(e);
     Atlas.Start("sdk_…");
-    // 从这一行起，崩溃、卡死与原生死亡都会被捕获。其余均为可选。
 
-    // 你方的已登录用户 id，以及值得与崩溃一起查看的状态。
+    // 以下均为可选。
+    // 需要在崩溃旁标出已登录用户时。
     AtlasCrash.SetUserId("u-123");
+    // 需要自定义筛选问题的维度时：实验分组、服务端环境、页面。
     AtlasCrash.SetKey("screen", "checkout");
+    // 记录只有应用自己知道的步骤；页面切换与系统事件已自动记录。
     AtlasCrash.LeaveBreadcrumb("cart", "add");
+    // 以文字留下崩溃前的代码路径。
     AtlasCrash.Log("cart total recomputed");
 }
 ```
@@ -224,12 +227,15 @@ private void Pay()
 Protected Overrides Sub OnStartup(e As StartupEventArgs)
     MyBase.OnStartup(e)
     Atlas.Start("sdk_…")
-    ' 从这一行起，崩溃、卡死与原生死亡都会被捕获。其余均为可选。
 
-    ' 你方的已登录用户 id，以及值得与崩溃一起查看的状态。
+    ' 以下均为可选。
+    ' 需要在崩溃旁标出已登录用户时。
     AtlasCrash.SetUserId("u-123")
+    ' 需要自定义筛选问题的维度时：实验分组、服务端环境、页面。
     AtlasCrash.SetKey("screen", "checkout")
+    ' 记录只有应用自己知道的步骤；页面切换与系统事件已自动记录。
     AtlasCrash.LeaveBreadcrumb("cart", "add")
+    ' 以文字留下崩溃前的代码路径。
     AtlasCrash.Log("cart total recomputed")
 End Sub
 ```

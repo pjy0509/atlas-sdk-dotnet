@@ -200,12 +200,15 @@ protected override void OnStartup(StartupEventArgs e)
 {
     base.OnStartup(e);
     Atlas.Start("sdk_…");
-    // Crashes, hangs and native deaths are caught from this line on. The rest is optional.
 
-    // Your own id for the signed-in user, and the state worth seeing beside a crash.
+    // Everything below is optional.
+    // For a signed-in user to be named beside the crash.
     AtlasCrash.SetUserId("u-123");
+    // For an axis to filter issues by: an experiment group, a server environment, a screen.
     AtlasCrash.SetKey("screen", "checkout");
+    // For a step only the app knows; screens and system events are already automatic.
     AtlasCrash.LeaveBreadcrumb("cart", "add");
+    // For the code path before a crash, in words.
     AtlasCrash.Log("cart total recomputed");
 }
 ```
@@ -235,12 +238,15 @@ private void Pay()
 Protected Overrides Sub OnStartup(e As StartupEventArgs)
     MyBase.OnStartup(e)
     Atlas.Start("sdk_…")
-    ' Crashes, hangs and native deaths are caught from this line on. The rest is optional.
 
-    ' Your own id for the signed-in user, and the state worth seeing beside a crash.
+    ' Everything below is optional.
+    ' For a signed-in user to be named beside the crash.
     AtlasCrash.SetUserId("u-123")
+    ' For an axis to filter issues by: an experiment group, a server environment, a screen.
     AtlasCrash.SetKey("screen", "checkout")
+    ' For a step only the app knows; screens and system events are already automatic.
     AtlasCrash.LeaveBreadcrumb("cart", "add")
+    ' For the code path before a crash, in words.
     AtlasCrash.Log("cart total recomputed")
 End Sub
 ```

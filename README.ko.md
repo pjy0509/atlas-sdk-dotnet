@@ -199,12 +199,15 @@ protected override void OnStartup(StartupEventArgs e)
 {
     base.OnStartup(e);
     Atlas.Start("sdk_…");
-    // 이 줄부터 크래시, 행, 네이티브 사망이 잡힙니다. 나머지는 선택입니다.
 
-    // 로그인한 사용자의 여러분 쪽 id와, 크래시 옆에서 보고 싶은 상태.
+    // 아래는 선택입니다.
+    // 로그인한 사용자를 크래시 옆에 남길 때.
     AtlasCrash.SetUserId("u-123");
+    // 이슈를 좁힐 축이 필요할 때. 실험 그룹, 서버 환경, 화면.
     AtlasCrash.SetKey("screen", "checkout");
+    // SDK가 모르는 앱 고유의 단계를 남길 때. 화면 전환과 시스템 이벤트는 이미 자동입니다.
     AtlasCrash.LeaveBreadcrumb("cart", "add");
+    // 크래시 직전 코드 경로를 문장으로 남길 때.
     AtlasCrash.Log("cart total recomputed");
 }
 ```
@@ -234,12 +237,15 @@ private void Pay()
 Protected Overrides Sub OnStartup(e As StartupEventArgs)
     MyBase.OnStartup(e)
     Atlas.Start("sdk_…")
-    ' 이 줄부터 크래시, 행, 네이티브 사망이 잡힙니다. 나머지는 선택입니다.
 
-    ' 로그인한 사용자의 여러분 쪽 id와, 크래시 옆에서 보고 싶은 상태.
+    ' 아래는 선택입니다.
+    ' 로그인한 사용자를 크래시 옆에 남길 때.
     AtlasCrash.SetUserId("u-123")
+    ' 이슈를 좁힐 축이 필요할 때. 실험 그룹, 서버 환경, 화면.
     AtlasCrash.SetKey("screen", "checkout")
+    ' SDK가 모르는 앱 고유의 단계를 남길 때. 화면 전환과 시스템 이벤트는 이미 자동입니다.
     AtlasCrash.LeaveBreadcrumb("cart", "add")
+    ' 크래시 직전 코드 경로를 문장으로 남길 때.
     AtlasCrash.Log("cart total recomputed")
 End Sub
 ```
